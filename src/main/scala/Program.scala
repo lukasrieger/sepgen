@@ -1,11 +1,11 @@
-import Expression.Var
+import Expr.Var
 
 enum Program:
-  case Assign(x: Var, expr: Expression)
-  case Load(x: Expression, pointer: Expression)
-  case Store(pointer: Expression, arg: Expression)
-  case Alloc(pointer: Expression)
-  case Free(pointer: Expression)
+  case Assign(x: Var, expr: Expr)
+  case Load(x: Expr, pointer: Expr)
+  case Store(pointer: Expr, arg: Expr)
+  case Alloc(pointer: Expr)
+  case Free(pointer: Expr)
   case Block(programs: List[Program])
-  case If(test: Expression, left: Program, right: Program)
-  case While(test: Expression, inv: Assert, body: Program)
+  case If(test: Expr, left: Program, right: Program)
+  case While(test: Expr, inv: Assert, body: Program)
