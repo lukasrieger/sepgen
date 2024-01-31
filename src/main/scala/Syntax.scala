@@ -9,8 +9,8 @@ private object Syntax:
     infix def ~~> (that: Assert): Assert = CoImp(self, that)
     infix def ~@  (that: Assert): Assert = Septract(self, that)
 
-  extension (expr: Expression)
-    infix def |->(that: Expression): Assert = PointsTo(expr, that)
+  extension (expr: Expr)
+    infix def |->(that: Expr): Assert = PointsTo(expr, that)
 
 
   extension (prog: Program)

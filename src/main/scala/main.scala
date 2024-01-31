@@ -1,4 +1,4 @@
-import Expression.Var
+import Expr.Var
 import Program.Free
 
 @main
@@ -11,5 +11,6 @@ def main(): Unit = {
     (Var("a") |-> Var("b")) ~~> (Var("c") |-> Var("d")) ** (Var("e") |-> Var("f"))
   }
 
+  println(Var("test").show)
   println(test)
 }
