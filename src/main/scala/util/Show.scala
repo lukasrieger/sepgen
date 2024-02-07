@@ -1,3 +1,5 @@
+package util
+
 trait Show[A]:
   def show(value: A): String
 

@@ -1,3 +1,5 @@
+package pure
+
 enum Assert:
   case SepAnd(left: Assert, right: Assert)
   case SepImp(left: Assert, right: Assert)

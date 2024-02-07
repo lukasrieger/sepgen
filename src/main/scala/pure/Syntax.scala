@@ -1,5 +1,8 @@
-import Assert.{CoImp, PointsTo, SepAnd, SepImp, Septract}
-import Program.Block
+package pure
+
+import pure.Assert.*
+import pure.Program.Block
+import pure.{Assert, Program}
 
 type Syntax = Syntax.type
 private object Syntax:

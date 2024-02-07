@@ -1,4 +1,5 @@
-import Expr.Var
+package pure
+
 
 enum Program:
   case Assign(x: Var, expr: Expr)
