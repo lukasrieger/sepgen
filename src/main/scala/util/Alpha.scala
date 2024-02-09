@@ -2,103 +2,107 @@ package util
 
 package alpha:
 
-  trait Term[E, V <: E]:
-    this: E =>
-  
-    def free: Set[V]
-  
-    def rename(re: Map[V, V]): E
-  
-    def subst(su: Map[V, E]): E
-  
-    infix def subst(v: V, e: E): E = subst(Map(v -> e))
+    trait Term[E, V <: E]:
+        this: E =>
 
-  trait X[E, V <: E] extends Term[E, V]:
-    this: V =>
-  
-    def fresh(index: Int): V
-  
-    def free: Set[V] = Set(this)
-  
-    def rename(re: Map[V, V]): V = re.getOrElse(this, this)
-  
-    def subst(su: Map[V, E]): E = su.getOrElse(this, this)
+        def free: Set[V]
+
+        def rename(re: Map[V, V]): E
+
+        def subst(su: Map[V, E]): E
+
+        infix def subst(v: V, e: E): E = subst(Map(v -> e))
+
+    trait X[E, V <: E] extends Term[E, V]:
+        this: V =>
+
+        def fresh(index: Int): V
+
+        def free: Set[V] = Set(this)
+
+        def rename(re: Map[V, V]): V = re.getOrElse(this, this)
+
+        def subst(su: Map[V, E]): E = su.getOrElse(this, this)
 
 
 trait Alpha[E <: alpha.Term[E, V], V <: E with alpha.X[E, V]]:
-  context =>
+    context =>
 
-  type Term = alpha.Term[E, V]
-  type X = alpha.X[E, V]
+    type Term = alpha.Term[E, V]
+    type X = alpha.X[E, V]
 
-  trait BindT[A]:
-    def bound: Set[V]
-    def rename(a: Map[V, V], re: Map[V, V]): A
-    def subst(a: Map[V, V], su: Map[V, E]): A
+    trait BindT[A]:
+        def bound: Set[V]
 
-    def avoid(xs: Set[V]): Map[V, V] =
-      context.fresh(bound & xs)
+        def rename(a: Map[V, V], re: Map[V, V]): A
 
-    def refresh: A =
-      val alpha = avoid(bound)
-      rename(alpha, alpha)
+        def subst(a: Map[V, V], su: Map[V, E]): A
 
-    def rename(re: Map[V, V]): A =
-      val xs = context.free(re)
-      val alpha = avoid(xs)
-      rename(alpha, re -- bound ++ alpha)
+        def avoid(xs: Set[V]): Map[V, V] =
+            context.fresh(bound & xs)
 
-    def subst(su: Map[V, E]): A =
-      val xs = context.free(su)
-      val alpha = avoid(xs)
-      subst(alpha, su -- bound ++ alpha)
+        def refresh: A =
+            val alpha = avoid(bound)
+            rename(alpha, alpha)
 
-  class Xs(xs: List[V]):
-    def rename(re: Map[V, V]): List[V] = xs map (_ rename re)
+        def rename(re: Map[V, V]): A =
+            val xs = context.free(re)
+            val alpha = avoid(xs)
+            rename(alpha, re -- bound ++ alpha)
+
+        def subst(su: Map[V, E]): A =
+            val xs = context.free(su)
+            val alpha = avoid(xs)
+            subst(alpha, su -- bound ++ alpha)
+
+    class Xs(xs: List[V]):
+        def rename(re: Map[V, V]): List[V] = xs map (_ rename re)
 
 
-  class Terms(es: List[E]):
-    def free: Set[V] = Set(es flatMap(_.free) : _*)
-    def rename(re: Map[V, V]): List[E] = es map (_ rename re)
-    def subst(su: Map[V, E]): List[E] = es map (_ subst su)
+    class Terms(es: List[E]):
+        def free: Set[V] = Set(es flatMap (_.free): _*)
 
-  private var _index: Int = 0
+        def rename(re: Map[V, V]): List[E] = es map (_ rename re)
 
-  private def nextIndex: Int =
-    _index += 1
-    _index
+        def subst(su: Map[V, E]): List[E] = es map (_ subst su)
 
-  def id(xs: Iterable[V]): Map[V, V] =
-    val ys = xs map (x => (x, x))
-    ys.toMap
+    private var _index: Int = 0
 
-  def fresh(x: V): V = x fresh nextIndex
+    private def nextIndex: Int =
+        _index += 1
+        _index
 
-  def fresh(xs: Iterable[V]): Map[V, V] =
-    val ys = xs map (x => (x, x fresh nextIndex))
-    ys.toMap
+    def id(xs: Iterable[V]): Map[V, V] =
+        val ys = xs map (x => (x, x))
+        ys.toMap
 
-  def free(es: Iterable[E]): Set[V] =
-    val ys = es flatMap (_.free)
-    ys.toSet
+    def fresh(x: V): V = x fresh nextIndex
 
-  def free(xs: Map[V, E]): Set[V] =
-    val ys = xs.values flatMap (_.free)
-    ys.toSet
+    def fresh(xs: Iterable[V]): Map[V, V] =
+        val ys = xs map (x => (x, x fresh nextIndex))
+        ys.toMap
 
-  def subst[B <: E](xs: (V, B)*): Map[V, B] =
-    xs.toMap
+    def free(es: Iterable[E]): Set[V] =
+        val ys = es flatMap (_.free)
+        ys.toSet
 
-  def subst[B <: E](xs: Iterable[(V, B)]): Map[V, B] =
-    xs.toMap
+    def free(xs: Map[V, E]): Set[V] =
+        val ys = xs.values flatMap (_.free)
+        ys.toSet
 
-  def subst[B <: E](xs: Iterable[V], ys: Iterable[B]): Map[V, B] =
-    require(xs.size == ys.size, "length mismatch")
-    val zs = xs zip ys
-    zs.toMap
+    def subst[B <: E](xs: (V, B)*): Map[V, B] =
+        xs.toMap
 
-  def compose(inner: Map[V, E], outer: Map[V, E]): Map[V, E] =
-    val updated = inner map { case (x, e) =>
-      (x, e subst outer)
-    }
-    updated ++ outer
+    def subst[B <: E](xs: Iterable[(V, B)]): Map[V, B] =
+        xs.toMap
+
+    def subst[B <: E](xs: Iterable[V], ys: Iterable[B]): Map[V, B] =
+        require(xs.size == ys.size, "length mismatch")
+        val zs = xs zip ys
+        zs.toMap
+
+    def compose(inner: Map[V, E], outer: Map[V, E]): Map[V, E] =
+        val updated = inner map { case (x, e) =>
+            (x, e subst outer)
+        }
+        updated ++ outer
