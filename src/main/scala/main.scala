@@ -3,8 +3,8 @@ import pure.Expr.*
 import pure.Program.Free
 import util.show
 
-@main
-def main(): Unit = {
+//@main
+//def main(): Unit = {
     //  val test = dsl {
     //    (Var("a") |-> Var("b")) ~~> (Var("c") |-> Var("d"))
     //
@@ -15,4 +15,15 @@ def main(): Unit = {
     //
     //  println(Var("test").show)
     //  println(test)
+//}
+
+
+@main
+def main(): Unit = {
+    val result = Program.backwards(Program.swapProgram)()
+
+    println(result)
+    println(simplify(result))
 }
+
+

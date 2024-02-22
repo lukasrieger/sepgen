@@ -49,6 +49,8 @@ case class Var(name: Name) extends Expr with Expr.X:
 
     def prime: Var = Var(name.withName(name.name + "^"))
 
+    override def toString: String = name.toString
+
 case class Lit(any: Any) extends Expr:
     override def free: Set[Var] = Set()
 

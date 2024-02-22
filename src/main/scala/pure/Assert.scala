@@ -4,33 +4,58 @@ import cats.Applicative
 import monocle.Traversal
 import monocle.function.Plated
 import cats.syntax.functor._
-import util.Alpha
 
 
-enum Assert:
-    case SepAnd(left: Assert, right: Assert)
-    case SepImp(left: Assert, right: Assert)
-    case CoImp(left: Assert, right: Assert)
-    case Septract(left: Assert, right: Assert)
-    case PointsTo(pointer: Expr, arg: Expr)
-    case Imp(left: Assert, right: Assert)
-    case Exists(x: Var, body: Assert) extends Assert, Expr.BindT[Exists]
-    case ForAll(x: Var, body: Assert) extends Assert, Expr.BindT[ForAll]
-    case Pure(expr: Expr)
-    case Pred(pred: Name, args: List[Expr]) // Pred("p", Vars*)
+sealed trait Assert
+
+case class SepAnd(left: Assert, right: Assert) extends Assert:
+    override def toString: String = s"($left ** $right)"
+case class SepImp(left: Assert, right: Assert) extends Assert:
+    override def toString: String = s"($left --* $right)"
+case class CoImp(left: Assert, right: Assert) extends Assert:
+    override def toString: String = s"($left ~~> $right)"
+case class Septract(left: Assert, right: Assert) extends Assert:
+    override def toString: String = s"($left ~~@ $right)"
+case class PointsTo(pointer: Expr, arg: Expr) extends Assert:
+    override def toString: String = s"($pointer |-> $arg)"
+case class Imp(left: Assert, right: Assert) extends Assert:
+    override def toString: String = s"($left ==> $right)"
+
+
+case class Exists(x: Var, body: Assert) extends Assert, Expr.BindT[Exists]:
+    override def bound: Set[Var] = Set(x)
+    override def rename(a: Map[Var, Var], re: Map[Var, Var]): Exists = this
+    override def subst(a: Map[Var, Var], su: Map[Var, Expr]): Exists = this
+
+    override def toString: String = s"∃$x . ($body)"
+
+case class ForAll(x: Var, body: Assert) extends Assert, Expr.BindT[ForAll]:
+    override def bound: Set[Var] = Set(x)
+
+    override def rename(a: Map[Var, Var], re: Map[Var, Var]): ForAll = this
+
+    override def subst(a: Map[Var, Var], su: Map[Var, Expr]): ForAll = this
+
+    override def toString: String = s"∀$x . ($body)"
+
+
+
+case class Pure(expr: Expr) extends Assert
+case class Pred(pred: Name, args: List[Expr])  extends Assert:
+    override def toString: String = args.toString()
 
 
 object Assert:
     given assertPlated: Plated[Assert] = Plated(
         new Traversal[Assert, Assert]:
             override def modifyA[F[_] : Applicative](using f: Assert => F[Assert])(s: Assert): F[Assert] = s match
-                case Assert.SepAnd(l, r) => appTraverse(l, r, Assert.SepAnd.apply)
-                case Assert.SepImp(l, r) => appTraverse(l, r, Assert.SepImp.apply)
-                case Assert.CoImp(l, r) => appTraverse(l, r, Assert.CoImp.apply)
-                case Assert.Septract(l, r) => appTraverse(l, r, Assert.Septract.apply)
-                case Assert.Imp(l, r) => appTraverse(l, r, Assert.Imp.apply)
-                case Assert.Exists(x, e) => f(e).map(Assert.Exists(x, _))
-                case Assert.ForAll(x, e) => f(e).map(Assert.ForAll(x, _))
+                case SepAnd(l, r) => appTraverse(l, r, SepAnd.apply)
+                case SepImp(l, r) => appTraverse(l, r, SepImp.apply)
+                case CoImp(l, r) => appTraverse(l, r, CoImp.apply)
+                case Septract(l, r) => appTraverse(l, r, Septract.apply)
+                case Imp(l, r) => appTraverse(l, r, Imp.apply)
+                case Exists(x, e) => f(e).map(Exists(x, _))
+                case ForAll(x, e) => f(e).map(ForAll(x, _))
                 case _ => Applicative[F].pure(s)
     )
 

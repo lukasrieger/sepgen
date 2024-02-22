@@ -1,9 +1,7 @@
-import cats.Applicative
-import monocle.Traversal
 import monocle.function.Plated
 import pure.Assert
 import pure.Syntax.*
-import pure.Assert.{CoImp as ~~>, Imp as ==>, SepAnd as **, Septract as ~~@}
+import pure.{CoImp as ~~>, Imp as ==>, SepAnd as **, Septract as ~~@}
 import cats.syntax.all._
 
 
