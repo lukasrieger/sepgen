@@ -27,3 +27,16 @@ def main(): Unit = {
 }
 
 
+
+
+def abduce(assumptions: List[Assert], premises: List[Assert], conclusion: List[Assert]): (List[Assert], List[Assert]) =
+
+    conclusion match
+        case PointsTo(ptr, expr) :: rest =>
+            val assumptions_ = ???
+            val premises_ = ???
+
+            ???
+
+            abduce(assumptions_, premises_, rest)
+        case _ =>
