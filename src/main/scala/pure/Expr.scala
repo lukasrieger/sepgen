@@ -47,7 +47,7 @@ case class App(fun: Name, args: List[Expr]) extends Expr:
 case class Var(name: Name) extends Expr with Expr.X:
     override def fresh(index: Int): Var = Var(name.withIndex(index))
 
-    def prime: Var = Var(name.withName(name.name + "^"))
+    def prime: Var = Var(name.withName(name.name + "'"))
 
     override def toString: String = name.toString
 

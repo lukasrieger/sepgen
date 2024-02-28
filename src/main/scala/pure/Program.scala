@@ -21,8 +21,6 @@ object Program:
     
     def swapProgram: Program =
         block(
-            Alloc(Var(Name("P1"))),
-            Alloc(Var(Name("P2"))),
             Load(Var(Name("t")), Var(Name("P1"))),
             Load(Var(Name("b")), Var(Name("P2"))),
             Store(Var(Name("P1")), Var(Name("b"))),
@@ -56,7 +54,7 @@ object Program:
 
     def valid(ptr: Expr): Assert =
         val x = Var(Name("_")) 
-        Exists(x, ptr |-> x)
+        ptr |-> x
 
     def backwards(prg: Program)(post: Assert = collectVars(prg)): Assert = prg match
         case Assign(x, expr) => 
@@ -64,7 +62,9 @@ object Program:
             post
         case Load(y, ptr) =>
             val x: Var = y.prime
-            Exists(x, (ptr |-> x) ** ((ptr |-> x) --* post)) rename Map(y -> x)
+            val post_ = post rename Map(y -> x)
+            val body = (ptr |-> x) ** ((ptr |-> x) --* post_)
+            Exists(x, body)
         case Free(ptr) =>
             valid(ptr) ** post
         case Store(ptr, arg) =>
