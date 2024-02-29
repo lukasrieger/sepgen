@@ -1,8 +1,11 @@
 package pure
 
 import Assert.*
-import pure.{CoImp as ~~>, Imp as -->, SepAnd as **, Septract as ~@, PointsTo as |->}
+import pure.{CoImp as ~~>, Imp as -->, PointsTo as |->, SepAnd as **, Septract as ~@}
 import pure.Syntax.*
+
+import scala.::
+import scala.annotation.tailrec
 
 enum Program:
     case Assign(x: Var, expr: Expr)
@@ -17,8 +20,7 @@ enum Program:
 def block(programs: Program*): Program.Block = Program.Block(programs = programs.toList)
 
 object Program:
-    
-    
+
     def swapProgram: Program =
         block(
             Load(Var(Name("t")), Var(Name("P1"))),
@@ -27,39 +29,36 @@ object Program:
             Store(Var(Name("P2")), Var(Name("t")))
         )
 
-
     def collectVars(prg: Program): Pred =
         prg match
             case Program.Assign(x, expr) => 
-                Pred(Name("v"), List(x))
+                Pred(Name("p"), List(x))
             case Program.Load(x, pointer) => 
-                Pred(Name("v"), List(x))
+                Pred(Name("p"), List(x))
             case Program.Store(pointer, arg) => 
-                Pred(Name("v"), List.empty)
+                Pred(Name("p"), List.empty)
             case Program.Alloc(pointer) => 
-                Pred(Name("v"), List(pointer))
+                Pred(Name("p"), List(pointer))
             case Program.Free(pointer) => 
-                Pred(Name("v"), List.empty)
+                Pred(Name("p"), List.empty)
             case Program.Block(programs) => 
                 programs
                 .map(collectVars)
                 .foldRight[Pred](Pred(Name("v"), List.empty)) { (v, acc) =>
-                    Pred(Name("v"), v.args ::: acc.args)
+                    Pred(Name("p"), v.args ::: acc.args)
                 }
             case Program.If(test, left, right) => 
-                Pred(Name("v"), collectVars(left).args ::: collectVars(right).args)
+                Pred(Name("p"), collectVars(left).args ::: collectVars(right).args)
             case Program.While(test, inv, body) => 
                 collectVars(body)
-
 
     def valid(ptr: Expr): Assert =
         val x = Var(Name("_")) 
         ptr |-> x
 
     def backwards(prg: Program)(post: Assert = collectVars(prg)): Assert = prg match
-        case Assign(x, expr) => 
-            val y = Exists(Var(Name("?")), post) subst Map(x -> expr)
-            post
+        case Assign(x, expr) =>
+            post subst Map(x -> expr)
         case Load(y, ptr) =>
             val x: Var = y.prime
             val post_ = post rename Map(y -> x)
@@ -75,7 +74,44 @@ object Program:
         case Block(programs) => programs.foldRight(post) { (prg, postP) => 
             backwards(prg)(postP)    
         }
-            
+
+
+    @tailrec def abduce(
+                         assumptions: List[Assert],
+                         premises: List[Assert],
+                         conclusion: List[Assert]
+                       ): (List[Assert], List[Assert]) =
+
+        conclusion match
+            case (e @ Exists(x, PointsTo(p, y: Var))) :: rest if x == y => // does that work?
+                val resolved = premises resolve p
+
+                resolved match
+                    case Some(e) =>
+                        val premises_ : List[Assert] = premises without p
+                        abduce(assumptions, premises_, rest.map(_ subst Map(y -> e)))
+
+                    case None =>
+                        val assumptions_ = assumptions :+ e
+                        val premises_ = premises
+                        abduce(assumptions_, premises_, rest)
+
+            case c :: rest =>
+                val assumptions_ = assumptions :+ c
+                val premises_ = premises
+
+                abduce(assumptions_, premises, rest)
+
+
+
+extension (premises: List[Assert])
+    infix def resolve(p: Expr): Option[Expr] =
+        premises
+          .find { case PointsTo(`p`, e) => true }
+          .map  { case PointsTo(`p`, e) => e }
+
+    infix def without(p: Expr): List[Assert] =
+        premises.filterNot { case PointsTo(`p`, _) => true }
 
 
 // https://en.wikipedia.org/wiki/Predicate_transformer_semantics
