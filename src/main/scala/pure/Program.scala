@@ -1,7 +1,6 @@
 package pure
 
 import Assert.*
-import pure.{CoImp as ~~>, Imp as -->, PointsTo as |->, SepAnd as **, Septract as ~@}
 import pure.Syntax.*
 
 import scala.::
@@ -71,9 +70,14 @@ object Program:
         case Alloc(ptr) =>
             val ptrP = ptr.prime
             ForAll(ptrP, (ptrP |-> Var(Name("_"))) ** post) rename Map(ptr -> ptrP)
-        case Block(programs) => programs.foldRight(post) { (prg, postP) => 
-            backwards(prg)(postP)    
+        case Block(programs) => programs.foldRight(post) { (prg, postP) =>
+            backwards(prg)(postP)
         }
+        case If(test, left, right) => ???
+        case While(test, inv, body) => ???
+
+    def abduce(conclusion: Assert): (List[Assert], List[Assert]) = 
+        abduce(List(), List(), List(conclusion))
 
 
     @tailrec def abduce(
@@ -84,54 +88,50 @@ object Program:
 
         conclusion match
             case (e @ Exists(x, PointsTo(p, y: Var))) :: rest if x == y => // does that work?
-                val resolved = premises resolve p
+                val resolved = premises resolve p // use load
 
                 resolved match
                     case Some(e) =>
                         val premises_ : List[Assert] = premises without p
-                        abduce(assumptions, premises_, rest.map(_ subst Map(y -> e)))
+                        abduce(assumptions, premises_, rest subst Map(y -> e))
 
                     case None =>
                         val assumptions_ = assumptions :+ e
                         val premises_ = premises
                         abduce(assumptions_, premises_, rest)
 
+            case SepAnd(left, right) :: rest => abduce(assumptions, premises, left :: right :: rest)
+
             case c :: rest =>
                 val assumptions_ = assumptions :+ c
-                val premises_ = premises
+                val premises_ = premises without c
 
                 abduce(assumptions_, premises, rest)
 
+            case Nil => (assumptions, premises)
 
 
-extension (premises: List[Assert])
+
+
+extension (la: List[Assert])
     infix def resolve(p: Expr): Option[Expr] =
-        premises
-          .find { case PointsTo(`p`, e) => true }
-          .map  { case PointsTo(`p`, e) => e }
+        la collectFirst { case PointsTo(`p`, e) => e}
 
     infix def without(p: Expr): List[Assert] =
-        premises.filterNot { case PointsTo(`p`, _) => true }
+        la filterNot {
+            case PointsTo(`p`, _) => true
+            case _ => false
+        }
 
+    infix def subst(su: Map[Var, Expr]): List[Assert] =
+        la map (_ subst su)
+
+
+    infix def without(p: PointsTo): Option[List[Assert]] = la match
+        case `p` :: next => Some(next)
+        case Nil => ???
+
+    infix def load(p: Expr): (Option[PointsTo], List[Assert]) = ???
 
 // https://en.wikipedia.org/wiki/Predicate_transformer_semantics
 
-
-/**
-
- ForAll(
-    Var(P1^),
-    SepAnd(
-        PointsTo(
-            Var(P1^),
-            Var(_)
-        ),
-        ForAll(
-            Var(P2^),
-            SepAnd(
-                PointsTo(Var(P2^),Var(_)),Exists(Var(t^),SepAnd(PointsTo(Var(P1),Var(t^)),SepImp(PointsTo(Var(P1),Var(t^)),Exists(Var(b^),SepAnd(PointsTo(Var(P2),Var(b^)),SepImp(PointsTo(Var(P2),Var(b^)),SepAnd(Exists(Var(_),PointsTo(Var(P1),Var(_))),SepImp(PointsTo(Var(P1),Var(b)),SepAnd(Exists(Var(_),PointsTo(Var(P2),Var(_))),SepImp(PointsTo(Var(P2),Var(t)),Pred(v,List(Var(P1), Var(P2), Var(t), Var(b)))))))))))))))))
-
-
-
-
-**/

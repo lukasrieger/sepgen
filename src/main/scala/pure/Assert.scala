@@ -46,14 +46,18 @@ case class Septract(left: Assert, right: Assert) extends Assert:
     override def subst(su: Map[Var, Expr]) =
         Septract(left subst su, right subst su)
 
-case class PointsTo(pointer: Expr, arg: Expr) extends Assert:
-    override def toString: String = s"($pointer |-> $arg)"
+case class PointsTo(pointer: Expr, field: Option[String] = None, arg: Expr) extends Assert:
+    override def toString: String = field match
+        case Some(value) =>  s"($pointer.$value |-> $arg)"
+        case None =>  s"($pointer |-> $arg)"
+    
 
     override def rename(re: Map[Var, Var]) =
-        PointsTo(pointer rename re, arg rename re)
+        PointsTo(pointer rename re, field, arg rename re)
 
     override def subst(su: Map[Var, Expr]) =
-        PointsTo(pointer subst su, arg subst su)
+        PointsTo(pointer subst su, field, arg subst su)
+        
 case class Imp(left: Assert, right: Assert) extends Assert:
     override def toString: String = s"($left ==> $right)"
 
