@@ -12,6 +12,11 @@ sealed trait Assert:
     def rename(re: Map[Var, Var]): Assert
     def subst(su: Map[Var, Expr]): Assert
 
+case object Emp extends Assert:
+    override def rename(re: Map[Var, Var]) = this
+
+    override def subst(su: Map[Var, Expr]) = this
+
 case class SepAnd(left: Assert, right: Assert) extends Assert:
     override def toString: String = s"($left ** $right)"
 
@@ -92,18 +97,45 @@ case class ForAll(x: Var, body: Assert) extends Assert, Expr.BindT[ForAll]:
 
 case class Pure(expr: Expr) extends Assert:
 
-    override def rename(re: Map[Var, Var]) = ???
+    override def rename(re: Map[Var, Var]): Pure = ???
 
-    override def subst(su: Map[Var, Expr]) = ???
+    override def subst(su: Map[Var, Expr]): Pure = ???
 
-case class Pred(pred: Name, args: List[Expr])  extends Assert:
-    override def toString: String = args.toString()
+case class Pred(pred: Name, args: List[Expr]) extends Assert:
+    override def toString: String = s"${pred.name}($args)"
 
     override def rename(re: Map[Var, Var]) =
         Pred(pred, args rename re)
 
     override def subst(su: Map[Var, Expr]) =
         Pred(pred, args subst su)
+
+case class And(left: Assert, right: Assert) extends Assert:
+    override def toString: String = s"($left ∧ $right)"
+
+    override def rename(re: Map[Var, Var]) =
+        SepAnd(left rename re, right rename re)
+
+    override def subst(su: Map[Var, Expr]) =
+        SepAnd(left subst su, right subst su)
+
+case class Case(test: Pure, ifTrue: Assert, ifFalse: Assert) extends Assert:
+    override def toString: String = s"($test ? ($ifTrue) : ($ifFalse))"
+
+    override def rename(re: Map[Var, Var]) =
+        Case(test rename re, ifTrue rename re, ifFalse rename re)
+
+    override def subst(su: Map[Var, Expr]) =
+        Case(test subst su, ifTrue subst su, ifFalse subst su)
+
+case class AssertList(asserts: List[Assert]) extends Assert:
+    override def toString: String =
+        s"(${(asserts map (_.toString)).mkString(",")})"
+    override def rename(re: Map[Var, Var]) =
+        AssertList(asserts map (_ rename re))
+
+    override def subst(su: Map[Var, Expr]) =
+        AssertList(asserts map (_ subst su))
 
 
 object Assert:

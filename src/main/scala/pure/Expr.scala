@@ -25,14 +25,27 @@ object Expr extends Alpha[Expr, Var]:
     override type Term = util.alpha.Term[Expr, Var]
     override type X = util.alpha.X[Expr, Var]
 
+case class Not(neg: Expr) extends Expr:
+    override def toString: String = s"¬($neg)"
 
-    given exprShow: Show[Expr] with
-        override def show(value: Expr): String = value match
-            case Var(name) => s"$name"
+    def free: Set[pure.Var] = neg.free
 
-    given [Sub <: Expr](using s: Show[Expr]): Show[Sub] with
-        override def show(value: Sub): String = s.show(value)
+    def rename(re: Map[pure.Var, pure.Var]): pure.Expr =
+        Not(neg rename re)
 
+    def subst(su: Map[pure.Var, pure.Expr]): pure.Expr =
+        Not(neg subst su)
+
+case class Eq(left: Expr, right: Expr) extends Expr:
+    override def toString: String = s"$left = $right"
+
+    def free: Set[pure.Var] = left.free ++ right.free
+
+    def rename(re: Map[pure.Var, pure.Var]): pure.Expr =
+        Eq(left rename re, right rename re)
+
+    def subst(su: Map[pure.Var, pure.Expr]): pure.Expr =
+        Eq(left subst su, right subst su)
 
 case class App(fun: Name, args: List[Expr]) extends Expr:
     override def free: Set[Var] = args.free
@@ -44,12 +57,14 @@ case class App(fun: Name, args: List[Expr]) extends Expr:
         App(fun, args subst su)
 
 
-case class Var(name: Name) extends Expr with Expr.X:
+case class Var(name: Name, field: Option[Expr] = None) extends Expr with Expr.X:
     override def fresh(index: Int): Var = Var(name.withIndex(index))
 
     def prime: Var = Var(name.withName(name.name + "'"))
 
-    override def toString: String = name.toString
+    override def toString: String = field match
+        case Some(value) =>  s"$name.$value"
+        case None =>  s"$name "
 
 case class Lit(any: Any) extends Expr:
     override def free: Set[Var] = Set()
@@ -77,4 +92,5 @@ case class Bind(
         val xs = avoid filter bound
         val re = Expr.fresh(xs)
         rename(re)
+
 

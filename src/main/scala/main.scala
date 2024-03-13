@@ -23,6 +23,13 @@ def main(): Unit = {
     val result = Program.backwards(Program.swapProgram)()
 
     println(result)
-    println(simplify(result))
+
+    println(Program.abduce(result))
+
+    val sumResult = Program.backwards(Program.sumProgram)()
+
+    println(sumResult)
+
+    println(Program.abduce(sumResult))
 }
 
