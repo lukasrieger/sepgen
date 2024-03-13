@@ -110,7 +110,7 @@ object Program:
 
       pre ** (post --* post)
 
-    case Return(ret) => Emp
+    case Return(ret) => Emp // this is almost certainly wrong :(
 
   def abduce(conclusion: Assert): (List[Assert], List[Assert]) =
     abduce(List(), List(), List(conclusion), List.empty)
