@@ -3,6 +3,14 @@ package pure
 import util.{Alpha, Show}
 import Conversions.given
 
+enum Op(val symbol: String):
+    override def toString: String = symbol
+
+    case Plus extends Op("+")
+    case Minus extends Op("-")
+    case Mul extends Op("*")
+    case Div extends Op("/")
+
 
 enum Quantifier(val name: String):
     case ForAll extends Quantifier("forall")
@@ -24,6 +32,18 @@ sealed trait Expr extends Expr.Term
 object Expr extends Alpha[Expr, Var]:
     override type Term = util.alpha.Term[Expr, Var]
     override type X = util.alpha.X[Expr, Var]
+
+
+case class BinOp(left: Expr, op: Op, right: Expr) extends Expr:
+    override def toString: String = s"($left $op $right)"
+
+    override def free: Set[Var] = left.free ++ right.free
+
+    def rename(re: Map[pure.Var, pure.Var]): pure.Expr =
+        BinOp(left rename re, op, right rename re)
+
+    def subst(su: Map[pure.Var, pure.Expr]): pure.Expr =
+        BinOp(left subst su, op, right subst su)
 
 case class Not(neg: Expr) extends Expr:
     override def toString: String = s"¬($neg)"
@@ -64,7 +84,10 @@ case class Var(name: Name, field: Option[Expr] = None) extends Expr with Expr.X:
 
     override def toString: String = field match
         case Some(value) =>  s"$name.$value"
-        case None =>  s"$name "
+        case None =>  s"$name"
+        
+object Var:
+    def any = Var(Name("_"))
 
 case class Lit(any: Any) extends Expr:
     override def free: Set[Var] = Set()
@@ -72,6 +95,8 @@ case class Lit(any: Any) extends Expr:
     override def rename(re: Map[Var, Var]): Expr = this
 
     override def subst(su: Map[Var, Expr]): Expr = this
+
+    override def toString: String = any.toString
 
 case class Bind(
                    quantifier: Quantifier,

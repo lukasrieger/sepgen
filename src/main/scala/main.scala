@@ -20,16 +20,32 @@ import util.show
 
 @main
 def main(): Unit = {
-    val result = Program.backwards(Program.swapProgram)()
+//    val result = Program.backwards(Program.swapProgram)()
+//
+//    println(result)
+//
+//    println(Program.abduce(result))
+//
+//    val sumResult = Program.backwards(Program.sumProgram)()
+//
+//    println(sumResult)
+//
+//    println(Program.abduce(sumResult))
 
-    println(result)
+    val inferredPre = inferPre(sumProgram)
+    val inferredPost = inferPost(sumProgram)
 
-    println(Program.abduce(result))
+    println("<<Generated Pre>>")
+    println(inferredPre)
 
-    val sumResult = Program.backwards(Program.sumProgram)()
+    println("<<Generated Post>>")
+    println(inferredPost)
 
-    println(sumResult)
+    println("<<Simplified Pre>>")
+    println(simplify(inferredPre))
 
-    println(Program.abduce(sumResult))
+    println("<<Simplified Post>>")
+    println(simplify(inferredPost))
+
 }
 
