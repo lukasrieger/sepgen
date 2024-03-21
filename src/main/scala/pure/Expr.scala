@@ -77,17 +77,15 @@ case class App(fun: Name, args: List[Expr]) extends Expr:
         App(fun, args subst su)
 
 
-case class Var(name: Name, field: Option[Expr] = None) extends Expr with Expr.X:
+case class Var(name: Name) extends Expr with Expr.X:
     override def fresh(index: Int): Var = Var(name.withIndex(index))
 
     def prime: Var = Var(name.withName(name.name + "'"))
 
-    override def toString: String = field match
-        case Some(value) =>  s"$name.$value"
-        case None =>  s"$name"
-        
+    override def toString: String = name.toString
+
 object Var:
-    def any = Var(Name("_"))
+  def any = Var(Name("_"))
 
 case class Lit(any: Any) extends Expr:
     override def free: Set[Var] = Set()

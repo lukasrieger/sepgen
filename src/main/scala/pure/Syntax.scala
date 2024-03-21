@@ -13,10 +13,9 @@ object Syntax:
         infix def ~~>(that: Assert): Assert = CoImp(self, that)
         infix def ~~@(that: Assert): Assert = Septract(self, that)
         infix def ==>(that: Assert): Assert = Imp(self, that)
-        infix def ∧(that: Assert): Assert = And(self, that)
 
-    extension (expr: Expr)
-        infix def |->(that: Expr): PointsTo = PointsTo(pointer = expr, arg = that)
+//    extension (expr: Expr)
+//        infix def |->(that: Expr): Assert = PointsTo(pointer = expr, arg = that)
 
 
     extension (prog: Program)
