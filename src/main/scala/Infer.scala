@@ -1,6 +1,6 @@
 import pure.*
 import pure.Program.*
-import pure.Syntax.{**, |->}
+import pure.Syntax.**
 
 import scala.annotation.tailrec
 
@@ -11,8 +11,8 @@ def sumProgram: Program =
       test = Eq(Var(Name("p")), Lit(0)),
       left = Return(Lit(0)),
       right = block(
-        Load(Var(Name("x")), Var(Name("p"), field = Some(Var(Name("value"))))),
-        Load(Var(Name("n")), Var(Name("p"), field = Some(Var(Name("next"))))),
+        Load(Var(Name("x")), Var(Name("p")), field = Some("value")),
+        Load(Var(Name("n")), Var(Name("p")), field = Some("next")),
         Call(Name("rec"), Var(Name("n")), Var(Name("y"))),
         Return(BinOp(Var(Name("y")), Op.Plus, Var(Name("x"))))
       )
@@ -32,14 +32,14 @@ private def inferPre(proc: List[Program])(heap: Heap): Assert =
   proc match
     case Program.Assign(x, expr) :: rest =>
       inferPre(rest)(heap) subst Map(x -> expr)
-    case Program.Load(x, pointer) :: rest =>
+    case Program.Load(x, pointer, field) :: rest =>
       heap load pointer match
         case Some(value) =>
           inferPre(rest)(heap) subst Map(x -> value)
 
         case None =>
           val fresh = x.prime
-          val pto = PointsTo(pointer, None, fresh)
+          val pto = PointsTo(pointer, field, fresh)
           val heap_ = pto *** heap
 
           val y = inferPre(rest)(heap_)
@@ -47,10 +47,10 @@ private def inferPre(proc: List[Program])(heap: Heap): Assert =
           val __y = pto ** _y
 
           Exists(fresh, __y)
-    case Program.Store(pointer, arg) :: rest =>
+    case Program.Store(pointer, arg, field) :: rest =>
       heap load pointer match
         case Some(_) =>
-          val pto = pointer |-> arg
+          val pto = PointsTo(pointer, field, arg)
           val heap_ = heap store pto
 
           pto ** inferPre(rest)(heap_)
@@ -89,14 +89,14 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
   proc match
     case Program.Assign(x, expr) :: rest =>
       inferPost(rest)(heap) subst Map(x -> expr)
-    case Program.Load(x, pointer) :: rest =>
+    case Program.Load(x, pointer, field) :: rest =>
       heap load pointer match
         case Some(value) =>
           inferPost(rest)(heap) subst Map(x -> value)
 
         case None =>
           val fresh = x.prime
-          val pto = PointsTo(pointer, None, fresh)
+          val pto = PointsTo(pointer, field, fresh)
           val heap_ = pto *** heap
 
           val y = inferPost(rest)(heap_)
@@ -104,10 +104,10 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
           val __y = pto ** _y
 
           Exists(fresh, __y)
-    case Program.Store(pointer, arg) :: rest =>
+    case Program.Store(pointer, arg, field) :: rest =>
       heap load pointer match
         case Some(_) =>
-          val pto = pointer |-> arg
+          val pto = PointsTo(pointer, field, arg)
           val heap_ = heap store pto
 
           pto ** inferPost(rest)(heap_)
@@ -133,8 +133,7 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
     case Program.Call(name, arg, rt) :: rest =>
       Pred(Name("post"), List(arg, rt)) ** inferPost(rest)(heap)
     case Program.Return(ret) :: rest =>
-      // unsure about this
-      (Var(Name("result")) |-> ret) ** inferPost(rest)(heap)
+      PointsTo(Var(Name("result")), None, ret) ** inferPost(rest)(heap)
     case Nil => Emp
 
 
@@ -167,7 +166,7 @@ extension (heap: Heap)
 
   @tailrec infix def store(pto: PointsTo, seen: Heap = List.empty): Heap =
     heap match
-      case PointsTo(pto.pointer, _, _) :: rest => // incorrect for field access
+      case PointsTo(pto.pointer, pto.field, _) :: rest =>
         seen ::: pto :: rest
       case other :: tail => tail store(pto, seen :+ other)
       case Nil => heap

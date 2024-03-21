@@ -35,11 +35,14 @@ def main(): Unit = {
     val inferredPre = inferPre(sumProgram)
     val inferredPost = inferPost(sumProgram)
 
-    println("<<Generated Pre>>")
-    println(inferredPre)
+//    println("<<Generated Pre>>")
+//    println(inferredPre)
+//
+//    println("<<Generated Post>>")
+//    println(inferredPost)
 
-    println("<<Generated Post>>")
-    println(inferredPost)
+    println("Given program:")
+    println(sumProgram)
 
     println("<<Simplified Pre>>")
     println(simplify(inferredPre))
