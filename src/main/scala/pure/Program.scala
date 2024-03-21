@@ -7,8 +7,8 @@ import scala.annotation.tailrec
 
 enum Program:
   case Assign(x: Var, expr: Expr)
-  case Load(x: Var, pointer: Expr)
-  case Store(pointer: Expr, arg: Expr)
+  case Load(x: Var, pointer: Expr, field: Option[String] = None)
+  case Store(pointer: Expr, arg: Expr, field: Option[String] = None)
   case Alloc(pointer: Var)
   case Free(pointer: Expr)
   case Block(programs: List[Program])
@@ -35,8 +35,8 @@ object Program:
         test = Eq(Var(Name("p")), Lit(0)),
         left = Return(Lit(0)),
         right = block(
-          Load(Var(Name("x")), Var(Name("p"), field = Some(Var(Name("value"))))),
-          Load(Var(Name("n")), Var(Name("p"), field = Some(Var(Name("next"))))),
+          Load(Var(Name("x")), Var(Name("p")), Some("value")),
+          Load(Var(Name("n")), Var(Name("p")), Some("next")),
           Call(Name("rec"), Var(Name("n")), Var(Name("y"))),
           Return(Var(Name("y")))
         )
@@ -47,9 +47,9 @@ object Program:
     prg match
       case Program.Assign(x, _) =>
         Pred(Name("post"), List(x))
-      case Program.Load(x, _) =>
+      case Program.Load(x, _, _) =>
         Pred(Name("post"), List(x))
-      case Program.Store(_, _) =>
+      case Program.Store(_, _, _) =>
         Pred(Name("post"), List.empty)
       case Program.Alloc(pointer) =>
         Pred(Name("post"), List(pointer))
@@ -69,29 +69,34 @@ object Program:
       case Return(_) => Pred(Name("post"), List.empty)
 
 
-  def valid(ptr: Expr): Assert =
+  def valid(ptr: Expr, field: Option[String]): Assert =
     val x = Var(Name("_"))
-    ptr |-> x
+    PointsTo(ptr, field, x)
+//    ptr |-> x
 
   def backwards(prg: Program)(post: Assert = collectVars(prg)): Assert = prg match
     case Assign(x, expr) =>
       post subst Map(x -> expr)
-    case Load(y, ptr) =>
+    case Load(y, ptr, field) =>
       val x: Var = y.prime
       val post_ = post rename Map(y -> x) // ?????
-      val body = (ptr |-> x) ** ((ptr |-> x) --* post_)
+//      val body = (ptr |-> x) ** ((ptr |-> x) --* post_)
 
-      val existsX = Exists(x, ptr |-> x)
-      val body_ = existsX ** ((ptr |-> x) --* post_)
+//      val body2 = PointsTo(ptr, field, x) ** (PointsTo(ptr, field, x) --* post_)
+
+      val existsX = Exists(x, PointsTo(ptr, field, x) )
+      val body_ = existsX ** (PointsTo(ptr, field, x)  --* post_)
 
       body_
-    case Free(ptr) =>
-      valid(ptr) ** post
-    case Store(ptr, arg) =>
-      valid(ptr) ** ((ptr |-> arg) --* post)
+    case Free(ptr) => ???
+//      valid(ptr) ** post
+    case Store(ptr, arg, field) =>
+      valid(ptr, field) ** PointsTo(ptr, field, arg) --* post
+//      valid(ptr) ** ((ptr |-> arg) --* post)
     case Alloc(ptr) =>
       val ptrP = ptr.prime
-      ForAll(ptrP, (ptrP |-> Var(Name("_"))) ** post) rename Map(ptr -> ptrP)
+      ???
+//      ForAll(ptrP, (ptrP |-> Var(Name("_"))) ** post) rename Map(ptr -> ptrP)
     case Block(programs) => programs.foldRight(post) { (prg, postP) =>
       backwards(prg)(postP)
     }
@@ -168,7 +173,7 @@ object Program:
       
       case Nil =>
         println(s"Reached end, left with the following premises $premises")
-        (assumptions, conclusionsRest)
+        (assumptions, conclusion)
 
 
 extension (la: List[Assert])
