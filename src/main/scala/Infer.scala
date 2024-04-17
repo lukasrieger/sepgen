@@ -97,13 +97,13 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
         case None =>
           val fresh = x.prime
           val pto = PointsTo(pointer, field, fresh)
-          val heap_ = pto *** heap
+          val heap_ = heap :+ pto
 
           val y = inferPost(rest)(heap_)
           val _y = y subst Map(x -> fresh)
-          val __y = pto ** _y
+//          val __y = pto ** _y
 
-          Exists(fresh, __y)
+          Exists(fresh, _y)
     case Program.Store(pointer, arg, field) :: rest =>
       heap load pointer match
         case Some(_) =>
@@ -114,7 +114,7 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
         case None =>
           val fresh = Var.any
           val pto = PointsTo(pointer, None, arg)
-          val heap_ = pto *** heap
+          val heap_ = heap :+ pto
 
           val y = inferPost(rest)(heap_)
 
@@ -131,10 +131,15 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
       ) ** inferPost(rest)(heap)
     case Program.While(test, inv, body) :: rest => ???
     case Program.Call(name, arg, rt) :: rest =>
-      Pred(Name("post"), List(arg, rt)) ** inferPost(rest)(heap)
+      val heap_ = heap :+ Pred(Name("post"), List(arg, rt))
+      inferPost(rest)(heap_)
     case Program.Return(ret) :: rest =>
       PointsTo(Var(Name("result")), None, ret) ** inferPost(rest)(heap)
-    case Nil => Emp
+    case Nil =>
+      if heap.isEmpty then
+        Emp
+      else
+        heap.reduce(_ ** _)
 
 
 def simplify(assertion: Assert): Assert =
