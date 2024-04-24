@@ -32,8 +32,8 @@ def main(): Unit = {
 //
 //    println(Program.abduce(sumResult))
 
-    val inferredPre = inferPre(sumProgram)
-    val inferredPost = inferPost(sumProgram)
+    val inferredPre: Assert = inferPre(sumProgram)
+    val inferredPost: Assert = inferPost(sumProgram)
 
 //    println("<<Generated Pre>>")
 //    println(inferredPre)
@@ -45,10 +45,19 @@ def main(): Unit = {
     println(sumProgram)
 
     println("<<Simplified Pre>>")
-    println(simplify(inferredPre))
+    println(inferredPre.simplify())
 
     println("<<Simplified Post>>")
-    println(simplify(inferredPost))
+    println(inferredPost.simplify())
+
+
+    println("Are equal?")
+    val xx = inferredPre.simplify() -> inferredPost.simplify()
+    val yy = infer(sumProgram) map (_.simplify())
+
+    println(xx == yy)
+
+    println(s"${yy._1} ==> ${yy._2}")
 
 }
 

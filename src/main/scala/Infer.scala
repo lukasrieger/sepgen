@@ -20,12 +20,12 @@ def sumProgram: Program =
   )
 
 
-type Heap = List[Assert]
+private type Heap = List[Assert]
 
 def inferPre(program: Program): Assert =
   inferPre(List(program))(List.empty)
 
-def inferPre(program: Program)(heap: Heap): Assert =
+private def inferPre(program: Program)(heap: Heap): Assert =
   inferPre(List(program))(heap)
 
 private def inferPre(proc: List[Program])(heap: Heap): Assert =
@@ -79,10 +79,11 @@ private def inferPre(proc: List[Program])(heap: Heap): Assert =
     case Program.Return(_) :: rest => Emp ** inferPre(rest)(heap)
     case Nil => Emp
 
+
 def inferPost(program: Program): Assert =
   inferPost(List(program))(List.empty)
 
-def inferPost(program: Program)(heap: Heap): Assert =
+private def inferPost(program: Program, heap: Heap): Assert =
   inferPost(List(program))(heap)
 
 private def inferPost(proc: List[Program])(heap: Heap): Assert =
@@ -126,8 +127,8 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
     case Program.If(test, left, right) :: rest =>
       Case(
         test = Pure(test),
-        ifTrue = inferPost(left)(heap),
-        ifFalse = inferPost(right)(heap)
+        ifTrue = inferPost(left, heap),
+        ifFalse = inferPost(right, heap)
       ) ** inferPost(rest)(heap)
     case Program.While(test, inv, body) :: rest => ???
     case Program.Call(name, arg, rt) :: rest =>
@@ -140,22 +141,6 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
         Emp
       else
         heap.reduce(_ ** _)
-
-
-def simplify(assertion: Assert): Assert =
-  val simplified = assertion match
-    case SepAnd(Emp, Emp) => Emp
-    case SepAnd(left, Emp) => simplify(left)
-    case SepAnd(Emp, right) => simplify(right)
-    case SepAnd(left, right) => simplify(left) ** simplify(right)
-    case Case(test, ifTrue, ifFalse) => Case(test, simplify(ifTrue), simplify(ifFalse))
-    case Exists(x, body) => Exists(x, simplify(body))
-    case _ => assertion
-
-  if simplified != assertion then
-    simplify(simplified)
-  else
-    simplified
 
 
 extension (assertion: Assert)
