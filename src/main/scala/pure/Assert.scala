@@ -53,8 +53,8 @@ case class Septract(left: Assert, right: Assert) extends Assert:
 
 case class PointsTo(pointer: Expr, field: Option[String] = None, arg: Expr) extends Assert:
     override def toString: String = field match
-        case Some(value) =>  s"($pointer.$value |-> $arg)"
-        case None =>  s"($pointer |-> $arg)"
+        case Some(value) =>  s"$pointer.$value |-> $arg"
+        case None =>  s"$pointer |-> $arg"
     
 
     override def rename(re: Map[Var, Var]) =
@@ -103,6 +103,8 @@ case class Pure(expr: Expr) extends Assert:
     override def subst(su: Map[Var, Expr]): Pure =
         Pure(expr subst su)
 
+    override def toString: String = expr.toString
+
 case class Pred(pred: Name, args: List[Expr]) extends Assert:
     override def toString: String = s"${pred.name}($args)"
 
@@ -122,7 +124,7 @@ case class And(left: Assert, right: Assert) extends Assert:
         SepAnd(left subst su, right subst su)
 
 case class Case(test: Pure, ifTrue: Assert, ifFalse: Assert) extends Assert:
-    override def toString: String = s"($test ? ($ifTrue) : ($ifFalse))"
+    override def toString: String = s"($test ? $ifTrue : $ifFalse)"
 
     override def rename(re: Map[Var, Var]) =
         Case(test rename re, ifTrue rename re, ifFalse rename re)

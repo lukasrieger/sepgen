@@ -6,3 +6,5 @@ object Conversions:
     given Conversion[List[Var], VarList] = (vars: List[Var]) => new VarList(vars)
     
     given Conversion[List[Assert], AssertList] = (asserts: List[Assert]) => AssertList(asserts)
+
+    given Conversion[Int, Lit] = (i: Int) => Lit(i)

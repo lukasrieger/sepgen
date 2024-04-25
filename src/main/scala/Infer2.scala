@@ -1,5 +1,5 @@
 import pure.Syntax.**
-import pure.{Assert, Case, Emp, Exists, Expr, Name, PointsTo, Pred, Program, Pure, SepAnd, Var}
+import pure.{Assert, Case, Emp, Eq, Exists, Expr, Name, PointsTo, Pred, Program, Pure, SepAnd, Var}
 
 import scala.annotation.tailrec
 
@@ -19,7 +19,7 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
     case Program.Assign(x, expr) :: rest =>
       infer(rest)(heap) map (_ subst Map(x -> expr))
     case Program.Load(x, pointer, field) :: rest =>
-      heap load2 pointer match
+      heap load2 (pointer, field) match
         case Some(value) =>
           infer(rest)(heap) map (_ subst Map(x -> value))
         case None =>
@@ -36,55 +36,65 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
           )
       
     case Program.Store(pointer, arg, field) :: rest =>
-      heap load2 pointer match
+      heap load2 (pointer, field) match
         case Some(value) =>
           val pto = PointsTo(pointer, field, arg)
-          infer(rest)(heap store2 pto) map (pto ** _)
+
+
+          val heap_ = heap store2 pto
+          println("Store heap Some :")
+          println(heap_)
+          infer(rest)(heap_)
+
         case None =>
           val fresh = Var.any
-          val pto = PointsTo(pointer, None, arg)
+          val pto = PointsTo(pointer, field, arg)
           val heap_ = heap :+ pto
 
-          infer(rest)(heap_) map (PointsTo(pointer, None, fresh) ** _)
+          println("Store heap None :")
+          println(heap_)
+
+          infer(rest)(heap_) bimap (
+            pre = PointsTo(pointer, field, fresh) ** _,
+            post = identity
+          )
+
+
     case Program.Alloc(pointer) :: rest => ???
     case Program.Free(pointer) :: rest=> ???
     case Program.Block(programs) :: rest =>
       val (_pre, _post) = infer(rest)(heap)
       infer(programs)(heap) bimap (
         pre = _pre ** _,
-        post = _post ** _
+        post = identity
       )
     case Program.If(test, left, right) :: rest =>
-      val (leftPre, leftPost) = infer(left, heap)
-      val (rightPre, rightPost) = infer(right, heap)
+      val (leftPre, leftPost) = infer(left :: rest)(heap)
+      val (rightPre, rightPost) = infer(right :: rest)(heap)
 
-      infer(rest)(heap) bimap (
-        pre = Case(
-          test = Pure(test),
-          ifTrue = leftPre,
-          ifFalse = rightPre
-        ) ** _,
-        post = Case(
-          test = Pure(test),
-          ifTrue = leftPost,
-          ifFalse = rightPost
-        ) ** _
+      Case(
+        test = Pure(test),
+        ifTrue = leftPre,
+        ifFalse = rightPre
+      ) -> Case(
+        test = Pure(test),
+        ifTrue = leftPost,
+        ifFalse = rightPost
       )
-
     case Program.While(test, inv, body) :: rest => ???
-    case Program.Call(name, arg, rt) :: rest =>
-      val heap_ = heap :+ Pred(Name("post"), List(arg, rt))
+    case Program.Call(name, args, rt) :: rest =>
+      val heap_ = heap :+ Pred(Name("post"), args :+ rt)
       infer(rest)(heap_) bimap (
-        pre = Pred(Name("pre"), List(arg)) ** _,
+        pre = Pred(Name("pre"), args) ** _,
         post = identity
       )
     case Program.Return(ret) :: rest =>
       infer(rest)(heap) bimap (
         pre = identity,
-        post = PointsTo(Var(Name("result")), None, ret) ** _
+        post = Pure(Eq(Var(Name("result")), ret)) ** _
       )
     case Nil =>
-      if heap.isEmpty then Emp -> Emp else Emp -> heap.reduce(_ ** _)
+      if heap.isEmpty then Emp -> Emp else Emp -> heap.reduceRight(_ ** _)
 
 
 
@@ -114,7 +124,7 @@ extension (assertion: Assert)
       simplified
 
 extension (heap: Heap)
-  @tailrec infix def load2(pointer: Expr, field: Option[String] = None): Option[Expr] =
+  @tailrec infix def load2(pointer: Expr, field: Option[String]): Option[Expr] =
     heap match
       case PointsTo(`pointer`, `field`, value) :: _ => Some(value)
       case _ :: tail => tail load2(pointer, field)

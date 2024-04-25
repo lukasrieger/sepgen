@@ -1,7 +1,5 @@
+
 import pure.*
-import pure.Expr.*
-import pure.Program.Free
-import util.show
 
 //@main
 //def main(): Unit = {
@@ -31,34 +29,34 @@ def main(): Unit = {
 //    println(sumResult)
 //
 //    println(Program.abduce(sumResult))
-
-    val inferredPre: Assert = inferPre(sumProgram)
-    val inferredPost: Assert = inferPost(sumProgram)
+//
+//    val inferredPre: Assert = inferPre(sumProgram)
+//    val inferredPost: Assert = inferPost(sumProgram)
 
 //    println("<<Generated Pre>>")
 //    println(inferredPre)
 //
 //    println("<<Generated Post>>")
 //    println(inferredPost)
-
-    println("Given program:")
-    println(sumProgram)
-
-    println("<<Simplified Pre>>")
-    println(inferredPre.simplify())
-
-    println("<<Simplified Post>>")
-    println(inferredPost.simplify())
-
-
-    println("Are equal?")
-    val xx = inferredPre.simplify() -> inferredPost.simplify()
-    val yy = infer(sumProgram) map (_.simplify())
-
-    println(xx == yy)
-
-    println(s"${yy._1} ==> ${yy._2}")
-
+//    println("Given program:")
+//    println(sumProgram)
+//
+//
+//    println("<<Simplified Pre>>")
+//    println(inferredPre.simplify())
+//
+//    println("<<Simplified Post>>")
+//    println(inferredPost.simplify())
+//
+//
+//    println("Are equal?")
+//    val xx = inferredPre.simplify() -> inferredPost.simplify()
+//    val yy = infer(sumProgram) map (_.simplify())
+//
+//    println(xx == yy)
+//
+//    println(s"${yy._1} ==> ${yy._2}")
+//
     val (revP, revQ) = infer(Examples.listReverse) map (_.simplify())
     println(s"Reverse Pre: $revP")
     println(s"Reverse Post: $revQ")
@@ -70,6 +68,9 @@ def main(): Unit = {
     val (listSumP, listSumQ) = infer(Examples.listSum) map (_.simplify())
     println(s"List sum Pre: $listSumP")
     println(s"List sum Post: $listSumQ")
+    
+   
+    
 
 }
 

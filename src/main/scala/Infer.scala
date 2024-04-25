@@ -4,22 +4,6 @@ import pure.Syntax.**
 
 import scala.annotation.tailrec
 
-
-def sumProgram: Program =
-  block(
-    If(
-      test = Eq(Var(Name("p")), Lit(0)),
-      left = Return(Lit(0)),
-      right = block(
-        Load(Var(Name("x")), Var(Name("p")), field = Some("value")),
-        Load(Var(Name("n")), Var(Name("p")), field = Some("next")),
-        Call(Name("rec"), Var(Name("n")), Var(Name("y"))),
-        Return(BinOp(Var(Name("y")), Op.Plus, Var(Name("x"))))
-      )
-    )
-  )
-
-
 private type Heap = List[Assert]
 
 def inferPre(program: Program): Assert =
@@ -75,7 +59,7 @@ private def inferPre(proc: List[Program])(heap: Heap): Assert =
     case Program.While(test, inv, body) :: rest => ???
     case Program.Call(name, arg, rt) :: rest =>
       // recursive call
-      Pred(Name("pre"), List(arg)) ** inferPre(rest)(heap)
+      Pred(Name("pre"), arg) ** inferPre(rest)(heap)
     case Program.Return(_) :: rest => Emp ** inferPre(rest)(heap)
     case Nil => Emp
 
@@ -132,7 +116,7 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
       ) ** inferPost(rest)(heap)
     case Program.While(test, inv, body) :: rest => ???
     case Program.Call(name, arg, rt) :: rest =>
-      val heap_ = heap :+ Pred(Name("post"), List(arg, rt))
+      val heap_ = heap :+ Pred(Name("post"), arg :+ rt)
       inferPost(rest)(heap_)
     case Program.Return(ret) :: rest =>
       PointsTo(Var(Name("result")), None, ret) ** inferPost(rest)(heap)
