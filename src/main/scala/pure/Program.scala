@@ -19,6 +19,7 @@ package PrgDsl:
 
   case class PartialWhen(cond: Expr, ifTrue: Program)
   case class StructPointer(variable: Var, field: String)
+  case class PartialStore(arg: Expr)
 
   trait PrgScope:
     val program: ListBuffer[Program] = ListBuffer()
@@ -28,8 +29,6 @@ package PrgDsl:
     given s: PrgScope = new PrgScope {}
     val _ = init
     Program.Block(s.program.toList)
-
-
 
   extension(s: String)
     def v: Var = Var(Name(s))
@@ -53,6 +52,9 @@ package PrgDsl:
   def store(partial: StructPointer, arg: Expr)(using s: PrgScope): Unit =
     s.program += Program.Store(partial.variable, arg, Some(partial.field))
 
+  def store(arg: Expr): PartialStore =
+    PartialStore(arg)
+
   def when(test: Expr)(ifTrue: PrgScope ?=> Unit): PartialWhen =
     given subScope: PrgScope = new PrgScope {}
     val _ = ifTrue
@@ -71,6 +73,10 @@ package PrgDsl:
     s.program += Program.Return(ret)
 
 
+  extension (partial: PartialStore)
+    infix def in (pointer: Expr)(using s: PrgScope) = store(pointer, partial.arg, None)
+    infix def in (pointer: StructPointer)(using s: PrgScope) = store(pointer, partial.arg)
+
   extension (when: PartialWhen)
     infix def otherwise(ifFalse: PrgScope ?=> Unit)(using s: PrgScope): Unit =
       given subScope: PrgScope = new PrgScope {}
@@ -85,5 +91,5 @@ package PrgDsl:
     infix def eq(other: Expr) = Eq(e, other)
 
     infix def eq(other: Int) = Eq(e, Lit(other))
-    
+
     infix def + (other: Expr) = BinOp(e, Op.Plus, other)

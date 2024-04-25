@@ -31,11 +31,10 @@ object Examples {
 
   val listReverse: Program = program {
     load(v("next"), v("curr") |-> "next")
-
     when(v("next") eq 0) {
       returns (v("curr"))
     } otherwise {
-      store (v("curr") |-> "next", v("prev"))
+      store ("prev".v) in ("curr".v |-> "next")
       call("rec", List(v("curr"), v("next")), v("head"))
       returns(v("head"))
     }
