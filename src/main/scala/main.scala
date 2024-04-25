@@ -59,5 +59,17 @@ def main(): Unit = {
 
     println(s"${yy._1} ==> ${yy._2}")
 
+    val (revP, revQ) = infer(Examples.listReverse) map (_.simplify())
+    println(s"Reverse Pre: $revP")
+    println(s"Reverse Post: $revQ")
+
+    val (listLenP, listLenQ) = infer(Examples.listLength) map (_.simplify())
+    println(s"List length Pre: $listLenP")
+    println(s"List length Post: $listLenQ")
+
+    val (listSumP, listSumQ) = infer(Examples.listSum) map (_.simplify())
+    println(s"List sum Pre: $listSumP")
+    println(s"List sum Post: $listSumQ")
+
 }
 

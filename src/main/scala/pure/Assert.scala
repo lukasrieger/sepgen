@@ -97,9 +97,11 @@ case class ForAll(x: Var, body: Assert) extends Assert, Expr.BindT[ForAll]:
 
 case class Pure(expr: Expr) extends Assert:
 
-    override def rename(re: Map[Var, Var]): Pure = ???
+    override def rename(re: Map[Var, Var]): Pure =
+        Pure(expr rename re)
 
-    override def subst(su: Map[Var, Expr]): Pure = ???
+    override def subst(su: Map[Var, Expr]): Pure =
+        Pure(expr subst su)
 
 case class Pred(pred: Name, args: List[Expr]) extends Assert:
     override def toString: String = s"${pred.name}($args)"
