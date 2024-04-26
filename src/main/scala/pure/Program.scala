@@ -78,7 +78,6 @@ package PrgDsl:
 
   extension (v: Var)
     def <-- (pointer: Expr)(using s: ProgramScope): Unit = load(v, pointer, None)
-    
     def <-- (partial: StructPointer)(using s: ProgramScope): Unit = load(v, partial)
 
   extension (partial: PartialStore)
@@ -96,7 +95,5 @@ package PrgDsl:
 
   extension (e: Expr)
     infix def eq(other: Expr) = Eq(e, other)
-
     infix def eq(other: Int) = Eq(e, Lit(other))
-
     infix def + (other: Expr) = BinOp(e, Op.Plus, other)
