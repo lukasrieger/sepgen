@@ -21,7 +21,7 @@ object Examples:
       call("rec")("n".v)("y".v)
       returns ("y".v + 1)
 
-  val listReverse: Program = program:
+  val listReverse = program:
     "next".v <-- ("curr".v |-> "next")
     when("next".v eq 0):
       returns ("curr".v)
