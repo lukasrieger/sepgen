@@ -76,6 +76,11 @@ package PrgDsl:
     s.program += Program.Return(ret)
 
 
+  extension (v: Var)
+    def <-- (pointer: Expr)(using s: ProgramScope): Unit = load(v, pointer, None)
+    
+    def <-- (partial: StructPointer)(using s: ProgramScope): Unit = load(v, partial)
+
   extension (partial: PartialStore)
     infix def in (pointer: Expr)(using s: ProgramScope) = store(pointer, partial.arg, None)
     infix def in (pointer: StructPointer)(using s: ProgramScope) = store(pointer, partial.arg)
@@ -88,7 +93,6 @@ package PrgDsl:
         s.program += Program.If(when.cond, when.ifTrue, subScope.program.head)
       else
         s.program += Program.If(when.cond, when.ifTrue, Program.Block(subScope.program.toList))
-
 
   extension (e: Expr)
     infix def eq(other: Expr) = Eq(e, other)
