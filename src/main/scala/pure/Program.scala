@@ -69,6 +69,9 @@ package PrgDsl:
   def call(name: String, args: List[Var], rt: Var)(using s: ProgramScope): Unit =
     s.program += Program.Call(Name(name), args, rt)
 
+  def call(name: String)(args: Var*)(rt: Var)(using s: ProgramScope): Unit =
+    s.program += Program.Call(Name(name), args.toList, rt)
+
   def returns(ret: Expr)(using s: ProgramScope): Unit =
     s.program += Program.Return(ret)
 
