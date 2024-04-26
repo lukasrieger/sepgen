@@ -26,7 +26,7 @@ class VarList(vars: List[Var]) extends Expr.Xs(vars):
     def names: List[Name] = vars map (_.name)
 
 
-sealed trait Expr extends Expr.Term
+sealed trait Expr extends Expr.Term derives CanEqual
 
 
 object Expr extends Alpha[Expr, Var]:
@@ -115,5 +115,3 @@ case class Bind(
         val xs = avoid filter bound
         val re = Expr.fresh(xs)
         rename(re)
-
-

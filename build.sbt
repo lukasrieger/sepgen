@@ -11,4 +11,7 @@ lazy val root = (project in file("."))
 libraryDependencies ++= Seq(
   "dev.optics" %% "monocle-core"  % "3.2.0",
   "dev.optics" %% "monocle-macro" % "3.2.0",
+  "org.typelevel" %% "cats-core" % "2.10.0"
 )
+
+scalacOptions += "-feature"

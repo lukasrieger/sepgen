@@ -16,69 +16,69 @@ enum Program:
 
 package PrgDsl:
   import scala.collection.mutable.ListBuffer
+  import scala.language.dynamics
 
   case class PartialWhen(cond: Expr, ifTrue: Program)
   case class StructPointer(variable: Var, field: String)
   case class PartialStore(arg: Expr)
 
   trait ProgramScope:
-    val program: ListBuffer[Program] = ListBuffer()
+    val _program: ListBuffer[Program] = ListBuffer()
+
+  trait VarScope extends Dynamic:
+    def selectDynamic(name: String): Var = Var(Name(name))
 
 
   def program(init: ProgramScope ?=> Unit): Program =
     given s: ProgramScope = new ProgramScope {}
     val _ = init
-    Program.Block(s.program.toList)
-
-  extension(s: String)
-    def v: Var = Var(Name(s))
-
-  extension (v: Var)
-    infix def |-> (field: String): StructPointer =
-      StructPointer(v, field)
+    Program.Block(s._program.toList)
+  
+  def v(using s: ProgramScope): VarScope = new VarScope {}
 
   def assign(x: Var, expr: Expr)(using s: ProgramScope): Unit =
-    s.program += Program.Assign(x, expr)
+    s._program += Program.Assign(x, expr)
 
   def load(x: Var, pointer: Expr, field: Option[String] = None)(using s: ProgramScope): Unit =
-    s.program += Program.Load(x, pointer, field)
+    s._program += Program.Load(x, pointer, field)
 
   def load(x: Var, partial: StructPointer)(using s: ProgramScope): Unit =
-    s.program += Program.Load(x, partial.variable, Some(partial.field))
+    s._program += Program.Load(x, partial.variable, Some(partial.field))
 
   def store(pointer: Expr, arg: Expr, field: Option[String] = None)(using s: ProgramScope): Unit =
-    s.program += Program.Store(pointer, arg, field)
+    s._program += Program.Store(pointer, arg, field)
 
   def store(partial: StructPointer, arg: Expr)(using s: ProgramScope): Unit =
-    s.program += Program.Store(partial.variable, arg, Some(partial.field))
+    s._program += Program.Store(partial.variable, arg, Some(partial.field))
 
   def store(arg: Expr): PartialStore =
     PartialStore(arg)
 
-  def when(test: Expr)(ifTrue: ProgramScope ?=> Unit): PartialWhen =
+  def when(test: Expr)(ifTrue: ProgramScope ?=> Unit)(using s: ProgramScope): PartialWhen =
     given subScope: ProgramScope = new ProgramScope {}
     val _ = ifTrue
-    if subScope.program.size == 1 then
-      PartialWhen(test, subScope.program.head)
+    if subScope._program.size == 1 then
+      PartialWhen(test, subScope._program.head)
     else
-      PartialWhen(test, Program.Block(subScope.program.toList))
+      PartialWhen(test, Program.Block(subScope._program.toList))
 
   def call(name: Name, args: List[Var], rt: Var)(using s: ProgramScope): Unit =
-    s.program += Program.Call(name, args, rt)
+    s._program += Program.Call(name, args, rt)
 
   def call(name: String, args: List[Var], rt: Var)(using s: ProgramScope): Unit =
-    s.program += Program.Call(Name(name), args, rt)
+    s._program += Program.Call(Name(name), args, rt)
 
   def call(name: String)(args: Var*)(rt: Var)(using s: ProgramScope): Unit =
-    s.program += Program.Call(Name(name), args.toList, rt)
+    s._program += Program.Call(Name(name), args.toList, rt)
 
   def returns(ret: Expr)(using s: ProgramScope): Unit =
-    s.program += Program.Return(ret)
+    s._program += Program.Return(ret)
 
 
   extension (v: Var)
-    def <-- (pointer: Expr)(using s: ProgramScope): Unit = load(v, pointer, None)
-    def <-- (partial: StructPointer)(using s: ProgramScope): Unit = load(v, partial)
+    infix def |->(field: String): StructPointer = StructPointer(v, field)
+    infix def <-- (pointer: Expr)(using s: ProgramScope): Unit = load(v, pointer, None)
+    infix def <-- (partial: StructPointer)(using s: ProgramScope): Unit = load(v, partial)
 
   extension (partial: PartialStore)
     infix def in (pointer: Expr)(using s: ProgramScope) = store(pointer, partial.arg, None)
@@ -88,12 +88,14 @@ package PrgDsl:
     infix def otherwise(ifFalse: ProgramScope ?=> Unit)(using s: ProgramScope): Unit =
       given subScope: ProgramScope = new ProgramScope {}
       val _ = ifFalse
-      if subScope.program.size == 1 then
-        s.program += Program.If(when.cond, when.ifTrue, subScope.program.head)
+      if subScope._program.size == 1 then
+        s._program += Program.If(when.cond, when.ifTrue, subScope._program.head)
       else
-        s.program += Program.If(when.cond, when.ifTrue, Program.Block(subScope.program.toList))
+        s._program += Program.If(when.cond, when.ifTrue, Program.Block(subScope._program.toList))
 
   extension (e: Expr)
     infix def eq(other: Expr) = Eq(e, other)
     infix def eq(other: Int) = Eq(e, Lit(other))
+    infix def =:= (other: Expr): Eq = Eq(e, other)
+    infix def =:= (other: Int): Eq  = Eq(e, Lit(other))
     infix def + (other: Expr) = BinOp(e, Op.Plus, other)
