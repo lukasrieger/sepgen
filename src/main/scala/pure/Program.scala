@@ -19,7 +19,6 @@ package ProgramDsl:
 
   import scala.Tuple.{Filter, Size}
   import scala.collection.mutable.ListBuffer
-  import scala.compiletime.error
   import scala.language.dynamics
 
   case class PartialWhen(cond: Expr, ifTrue: Program)
