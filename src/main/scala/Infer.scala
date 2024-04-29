@@ -119,7 +119,7 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
       val heap_ = heap :+ Pred(Name("post"), arg :+ rt)
       inferPost(rest)(heap_)
     case Program.Return(ret) :: rest =>
-      PointsTo(Var(Name("result")), None, ret) ** inferPost(rest)(heap)
+      PointsTo(Var(Name("result")), None, ret.head) ** inferPost(rest)(heap)
     case Nil =>
       if heap.isEmpty then
         Emp

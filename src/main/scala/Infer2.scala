@@ -1,5 +1,5 @@
 import pure.Syntax.**
-import pure.{Assert, Case, Emp, Eq, Exists, Expr, Name, PointsTo, Pred, Program, Pure, SepAnd, Var}
+import pure.{Assert, Case, Emp, Eq, Exists, Expr, Name, PointsTo, Pred, Procedure, Program, Pure, SepAnd, Var}
 
 import scala.annotation.tailrec
 
@@ -7,6 +7,9 @@ private type Heap = List[Assert]
 
 type Pre = Assert
 type Post = Assert
+
+def infer(proc: Procedure): (Pre, Post) =
+  infer(proc.body)
 
 def infer(program: Program): (Pre, Post) =
   infer(List(program))(List.empty)
@@ -89,9 +92,11 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
         post = identity
       )
     case Program.Return(ret) :: rest =>
+      val resPred: List[Assert] = ret.zipWithIndex.map((r, i) => Pure(Eq(Var(Name("result").withIndex(i)), r)))
+      
       infer(rest)(heap) bimap (
         pre = identity,
-        post = Pure(Eq(Var(Name("result")), ret)) ** _
+        post = (resPred reduce ( _ ** _)) ** _
       )
     case Nil =>
       if heap.isEmpty then Emp -> Emp else Emp -> heap.reduceRight(_ ** _)
