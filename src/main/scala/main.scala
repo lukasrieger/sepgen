@@ -68,6 +68,10 @@ def main(): Unit = {
     val (listSumP, listSumQ) = infer(Examples.listSum) map (_.simplify())
     println(s"List sum Pre: $listSumP")
     println(s"List sum Post: $listSumQ")
+
+    val (dll_bst_P, dll_bst_Q) = infer(Examples.dll_to_bst) map (_.simplify())
+    println(s"DLL to BST Pre: $dll_bst_P")
+    println(s"DLL to BST Post: $dll_bst_Q")
     
    
     

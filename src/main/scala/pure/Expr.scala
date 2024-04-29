@@ -12,6 +12,8 @@ enum Op(val symbol: String):
     case Minus extends Op("-")
     case Mul extends Op("*")
     case Div extends Op("/")
+    case Lt extends Op("<")
+    case Gt extends Op(">")
 
 
 enum Quantifier(val name: String):

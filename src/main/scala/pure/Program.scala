@@ -1,6 +1,7 @@
 package pure
 
 import pure.Syntax.*
+
 import scala.compiletime.constValue
 
 enum Program:
@@ -12,7 +13,7 @@ enum Program:
   case Block(programs: List[Program])
   case If(test: Expr, left: Program, right: Program)
   case While(test: Expr, inv: Assert, body: Program)
-  case Call(name: Name, args: List[Var], rt: Var)
+  case Call(name: Name, args: List[Var], rt: List[Var])
   case Return(ret: List[Expr])
 
 package ProgramDsl:
@@ -26,6 +27,8 @@ package ProgramDsl:
   case class StructPointer(variable: Var, field: String)
 
   case class PartialStore(arg: Expr)
+  
+  case class PartialCall(rts: List[Var])
 
   case class DynamicSymbol(symbol: String) extends Dynamic:
     def selectDynamic(field: String): StructPointer =
@@ -81,43 +84,73 @@ package ProgramDsl:
     else
       PartialWhen(test, Program.Block(subScope._program.toList))
 
-  def call(name: Name, args: List[Var], rt: Var)(using s: ProgramScope[_]): Unit =
-    s._program += Program.Call(name, args, rt)
+  def call(name: Name, args: List[Var], rt: Var*)(using s: ProgramScope[_]): Unit =
+    s._program += Program.Call(name, args, rt.toList)
 
-  def call(name: String, args: List[Var], rt: Var)(using s: ProgramScope[_]): Unit =
-    s._program += Program.Call(Name(name), args, rt)
+  def call(name: String, args: List[Var], rt: Var*)(using s: ProgramScope[_]): Unit =
+    s._program += Program.Call(Name(name), args, rt.toList)
 
-  def call(name: String)(args: Var*)(rt: Var)(using s: ProgramScope[_]): Unit =
-    s._program += Program.Call(Name(name), args.toList, rt)
+  def call(name: String)(args: Var*)(rt: Var*)(using s: ProgramScope[_]): Unit =
+    s._program += Program.Call(Name(name), args.toList, rt.toList)
+    
+    
+  type IsVar[X] <: Boolean = X match
+    case Var => true
+    case DynamicSymbol => true
+    case _ => false
+  
+  def call_rec(rts: Var)(args: Var*)(using s: ProgramScope[1]): Unit =
+    s._program += Program.Call(
+      s.procedure.name,
+      args.toList,
+      List(rts)
+    )
 
-  def call_rec(args: Var*)(rts: Var*)(using s: ProgramScope[_]): Unit =
-    s._program += Program.Call(s.procedure.name, args.toList, rts.head)
+  def call_rec[R <: Tuple, T <: Int](rts: R)
+                                    (using s: ProgramScope[T])
+                                    (using Size[R] =:= T)
+                                    (using Size[Filter[R, IsVar]] =:= T): PartialCall =
+    PartialCall(rts.productIterator.map:
+      case s@(_: Var) => s
+      case s@(_: DynamicSymbol) => Var(Name(s.symbol))
+      case _ => throw RuntimeException("Wrong type.")
+    .toList)
 
   inline def returns(ret: Expr)(using s: ProgramScope[1]) =
     s._program += Program.Return(List(ret))
 
   type IsExpr[X] <: Boolean = X match
     case Expr => true
-    case Int  => true // necessary to give scala a chance to apply the implicit conversion Int => Lit
-    case _    => false
+    case Int => true // necessary to give scala a chance to apply the implicit conversion Int => Lit
+    case DynamicSymbol => true
+    case _ => false
 
   inline def returns[R <: Tuple, T <: Int](ret: R)
-                                                  (using s: ProgramScope[T])
-                                                  (using Size[R] =:= T)
-                                                  (using Size[Filter[R, IsExpr]] =:= T)  =
-    val normed2 = ret.productIterator.map {
-      case s@(_: Expr) => s
-      case s@(_: Int) => Lit(s)
-      case _ => throw RuntimeException("Wrong type.")
-    }
-    s._program += Program.Return(normed2.toList)
-
+                                          (using s: ProgramScope[T])
+                                          (using Size[R] =:= T)
+                                          (using Size[Filter[R, IsExpr]] =:= T) =
+    s._program += Program.Return(
+      ret.productIterator.map:
+        case s@(_: Expr) => s
+        case s@(_: Int) => Lit(s)
+        case s@(_: DynamicSymbol) => Var(Name(s.symbol))
+        case _ => throw RuntimeException("Wrong type.")
+      .toList
+    )
 
 
   extension (v: Var)
     infix def |->(field: String): StructPointer = StructPointer(v, field)
     infix def <--(pointer: Expr)(using s: ProgramScope[_]): Unit = load(v, pointer, None)
     infix def <--(partial: StructPointer)(using s: ProgramScope[_]): Unit = load(v, partial)
+    infix def := (expr: Expr)(using s: ProgramScope[_]): Unit = assign(v, expr)
+    
+  extension (partial: PartialCall)
+    infix def using(args: Var*)(using s: ProgramScope[_]) = s._program += Program.Call(
+        s.procedure.name,
+        args.toList,
+        partial.rts
+      )
 
   extension (partial: PartialStore)
     infix def in(pointer: Expr)(using s: ProgramScope[_]) = store(pointer, partial.arg, None)
@@ -139,3 +172,6 @@ package ProgramDsl:
     infix def =:=(other: Expr): Eq = Eq(e, other)
     infix def =:=(other: Int): Eq = Eq(e, Lit(other))
     infix def +(other: Expr) = BinOp(e, Op.Plus, other)
+    infix def /(other: Expr) = BinOp(e, Op.Div, other)
+    infix def -(other: Expr) = BinOp(e, Op.Minus, other)
+    infix def >(other: Expr) = BinOp(e, Op.Gt, other)

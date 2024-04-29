@@ -116,7 +116,7 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
       ) ** inferPost(rest)(heap)
     case Program.While(test, inv, body) :: rest => ???
     case Program.Call(name, arg, rt) :: rest =>
-      val heap_ = heap :+ Pred(Name("post"), arg :+ rt)
+      val heap_ = heap :+ Pred(Name("post"), arg ::: rt)
       inferPost(rest)(heap_)
     case Program.Return(ret) :: rest =>
       PointsTo(Var(Name("result")), None, ret.head) ** inferPost(rest)(heap)
