@@ -1,32 +1,33 @@
 
 object Examples:
   import pure.*
-  import pure.PrgDsl.*
+  import pure.ProgramDsl.*
   import scala.language.implicitConversions
   import pure.Conversions.given_Conversion_Int_Lit
+  import pure.ProgramDsl.given_Conversion_DynamicSymbol_Var
 
-  val listSum = program:
-    when (v.p =:= 0):
+  val listSum = program("listSum", "p"):
+    when ($.p =:= 0):
       returns (0)
     .otherwise:
-      v.x <-- (v.p |-> "value")
-      v.n <-- (v.p |-> "next")
-      call("rec")(v.n)(v.y)
-      returns (v.y + v.x)
+      $.x <-- $.p.value
+      $.n <-- $.p.next
+      call_rec($.n)($.y)
+      returns ($.y + $.x)
 
-  val listLength = program:
-    when (v.p =:= 0):
+  val listLength = program("listLength", "p"):
+    when ($.p =:= 0):
       returns (0)
     .otherwise:
-      v.n <-- (v.p |-> "next")
-      call("rec")(v.n)(v.y)
-      returns (v.y + 1)
+      $.n <-- $.p.next
+      call_rec($.n)($.y)
+      returns ($.y + 1)
 
-  val listReverse = program:
-    v.next <-- (v.curr |-> "next")
-    when (v.next =:= 0):
-      returns (v.curr)
+  val listReverse = program("listReverse", "curr"):
+    $.next <-- $.curr.next
+    when ($.next =:= 0):
+      returns ($.curr)
     .otherwise:
-      store (v.prev) in (v.curr |-> "next")
-      call("rec")(v.curr, v.next)(v.head)
-      returns (v.head)
+      store ($.prev) in $.curr.next
+      call_rec($.curr, $.next)($.head)
+      returns ($.head)

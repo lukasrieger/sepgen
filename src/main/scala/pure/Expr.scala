@@ -1,7 +1,9 @@
 package pure
 
-import util.{Alpha, Show}
-import Conversions.given
+import pure.Conversions.given
+import util.Alpha
+
+import scala.language.implicitConversions
 
 enum Op(val symbol: String):
     override def toString: String = symbol
