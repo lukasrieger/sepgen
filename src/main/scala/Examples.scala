@@ -49,3 +49,5 @@ object Examples:
       returns($.root, $.right)
     .otherwise:
       returns(0, $.head)
+
+  val all = List(listSum, listLength, listReverse, dll_to_bst)
