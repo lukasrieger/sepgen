@@ -1,15 +1,14 @@
 import pure.Syntax.**
-import pure.{Assert, Case, Emp, Eq, Exists, Expr, Name, PointsTo, Pred, Procedure, Program, Pure, SepAnd, Var}
+import pure.*
 
 import scala.annotation.tailrec
 
-private type Heap = List[Assert]
-
 type Pre = Assert
 type Post = Assert
+private type Heap = List[Assert]
 
 def infer(proc: Procedure): (Pre, Post) =
-  infer(proc.body)
+  infer(proc.body) map simplify
 
 def infer(program: Program): (Pre, Post) =
   infer(List(program))(List.empty)
@@ -22,7 +21,7 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
     case Program.Assign(x, expr) :: rest =>
       infer(rest)(heap) map (_ subst Map(x -> expr))
     case Program.Load(x, pointer, field) :: rest =>
-      heap load2 (pointer, field) match
+      heap load2(pointer, field) match
         case Some(value) =>
           infer(rest)(heap) map (_ subst Map(x -> value))
         case None =>
@@ -33,20 +32,20 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
 
           val y = infer(rest)(heap_) map (_ subst Map(x -> fresh))
 
-          y bimap (
+          y bimap(
             pre = a => Exists(fresh, pto ** a),
             post = Exists(fresh, _)
           )
-      
+
     case Program.Store(pointer, arg, field) :: rest =>
-      heap load2 (pointer, field) match
+      heap load2(pointer, field) match
         case Some(value) =>
           val pto = PointsTo(pointer, field, arg)
 
 
           val heap_ = heap store2 pto
-          println("Store heap Some :")
-          println(heap_)
+//          println("Store heap Some :")
+//          println(heap_)
           infer(rest)(heap_)
 
         case None =>
@@ -54,20 +53,20 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
           val pto = PointsTo(pointer, field, arg)
           val heap_ = heap :+ pto
 
-          println("Store heap None :")
-          println(heap_)
+//          println("Store heap None :")
+//          println(heap_)
 
-          infer(rest)(heap_) bimap (
+          infer(rest)(heap_) bimap(
             pre = PointsTo(pointer, field, fresh) ** _,
             post = identity
           )
 
 
     case Program.Alloc(pointer) :: rest => ???
-    case Program.Free(pointer) :: rest=> ???
+    case Program.Free(pointer) :: rest => ???
     case Program.Block(programs) :: rest =>
       val (_pre, _post) = infer(rest)(heap)
-      infer(programs)(heap) bimap (
+      infer(programs)(heap) bimap(
         pre = _pre ** _,
         post = identity
       )
@@ -87,46 +86,56 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
     case Program.While(test, inv, body) :: rest => ???
     case Program.Call(name, args, rt) :: rest =>
       val heap_ = heap :+ Pred(Name("post"), args ::: rt)
-      infer(rest)(heap_) bimap (
+      infer(rest)(heap_) bimap(
         pre = Pred(Name("pre"), args) ** _,
         post = identity
       )
     case Program.Return(ret) :: rest =>
       val resPred: List[Assert] = ret.zipWithIndex.map((r, i) => Pure(Eq(Var(Name("result").withIndex(i)), r)))
-      
-      infer(rest)(heap) bimap (
+
+      infer(rest)(heap) bimap(
         pre = identity,
-        post = (resPred reduce ( _ ** _)) ** _
+        post = (resPred reduce (_ ** _)) ** _
       )
     case Nil =>
       if heap.isEmpty then Emp -> Emp else Emp -> heap.reduceRight(_ ** _)
 
 
-
-
-
-extension (prePost : (Pre, Post))
+extension (prePost: (Pre, Post))
   infix def map(f: Assert => Assert): (Pre, Post) =
     f(prePost._1) -> f(prePost._2)
 
   infix def bimap(pre: Assert => Assert, post: Assert => Assert): (Pre, Post) =
     pre(prePost._1) -> post(prePost._2)
 
-extension (assertion: Assert)
-  def simplify(): Assert =
-    val simplified = assertion match
-      case SepAnd(Emp, Emp) => Emp
-      case SepAnd(left, Emp) => left.simplify()
-      case SepAnd(Emp, right) => right.simplify()
-      case SepAnd(left, right) => left.simplify() ** right.simplify()
-      case Case(test, ifTrue, ifFalse) => Case(test, ifTrue.simplify(), ifFalse.simplify())
-      case Exists(x, body) => Exists(x, body.simplify())
-      case _ => assertion
+  infix def tap(pre: Assert => Unit, post: Assert => Unit): (Pre, Post) =
+    pre(prePost._1)
+    post(prePost._2)
+    prePost
 
-    if simplified != assertion then
-      simplified.simplify()
-    else
-      simplified
+  infix def pre(pre: Assert => Unit): (Pre, Post) =
+    pre(prePost._1)
+    prePost
+
+  infix def post(post: Assert => Unit): (Pre, Post) =
+    post(prePost._2)
+    prePost
+
+
+private def simplify(assert: Assert): Assert =
+  val simplified = assert match
+    case SepAnd(Emp, Emp) => Emp
+    case SepAnd(left, Emp) => simplify(left)
+    case SepAnd(Emp, right) => simplify(right)
+    case SepAnd(left, right) => simplify(left) ** simplify(right)
+    case Case(test, ifTrue, ifFalse) => Case(test, simplify(ifTrue), simplify(ifFalse))
+    case Exists(x, body) => Exists(x, simplify(body))
+    case _ => assert
+
+  if simplified != assert then
+    simplify(simplified)
+  else
+    simplified
 
 extension (heap: Heap)
   @tailrec infix def load2(pointer: Expr, field: Option[String]): Option[Expr] =

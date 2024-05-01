@@ -9,6 +9,9 @@ private type Heap = List[Assert]
 def inferPre(program: Program): Assert =
   inferPre(List(program))(List.empty)
 
+def inferPost(program: Program): Assert =
+  inferPost(List(program))(List.empty)
+
 private def inferPre(program: Program)(heap: Heap): Assert =
   inferPre(List(program))(heap)
 
@@ -63,10 +66,6 @@ private def inferPre(proc: List[Program])(heap: Heap): Assert =
     case Program.Return(_) :: rest => Emp ** inferPre(rest)(heap)
     case Nil => Emp
 
-
-def inferPost(program: Program): Assert =
-  inferPost(List(program))(List.empty)
-
 private def inferPost(program: Program, heap: Heap): Assert =
   inferPost(List(program))(heap)
 
@@ -86,7 +85,7 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
 
           val y = inferPost(rest)(heap_)
           val _y = y subst Map(x -> fresh)
-//          val __y = pto ** _y
+          //          val __y = pto ** _y
 
           Exists(fresh, _y)
     case Program.Store(pointer, arg, field) :: rest =>
