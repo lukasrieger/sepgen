@@ -50,4 +50,16 @@ object Examples:
     .otherwise:
       returns(0, $.head)
 
-  val all = List(listSum, listLength, listReverse, dll_to_bst)
+  val appendList = program("appendList")("first","second"):
+    $.next <-- $.first.next
+    when($.next =:= 0):
+      store($.second) in $.first.next
+      returns($.ignored)
+    .otherwise:
+      call_rec($.next, $.second)($.ignored)
+      returns($.ignored)
+
+  val all = List(listSum, listLength, listReverse, dll_to_bst, appendList)
+
+  // TODO: FIND + REMOVE + INCREMENT ALL + (ALL FOLD/REDUCES/FILTERS)
+  // TODO : Abstract before talk (goals of thesis etc.)
