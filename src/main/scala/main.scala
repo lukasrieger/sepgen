@@ -11,8 +11,7 @@ def main(): Unit =
   Examples.all.foreach: proc =>
     infer(proc)
       .tapPre: p =>
-        info(s"${proc.signature.name} Pre:")
+        info(s"${proc.signature.name} :")
         info(s"  $p")
       .tapPost: q =>
-        info(s"${proc.signature.name} Post:")
         info(s"  $q")

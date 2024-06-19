@@ -1,13 +1,13 @@
 package pure
 
 
-// Idea: Split by constructors
+// Idea: Split by constructors?
 case class Predicate(name: Name, params: List[Name], body: Assert):
-  override def toString: String = s"${name.name}${pretty(params)} <== $body"
+  override def toString: String = s"${name.name}${params.pretty()} <== $body"
 
-
-def pretty(names: List[Name]): String =
-  names.mkString("(", ", ", ")")
+extension (params: List[Name])
+  private def pretty(): String =
+    params.mkString("(", ", ", ")")
 
 
 extension (prePost: (Predicate, Predicate))
@@ -25,7 +25,7 @@ object Predicate:
     Predicate(
       proc.signature.name.copy(name),
       proc.signature.params.map(_.name),
-      renamePred(body, "pre", s"${name}Pre")
+      body.renamePred("pre", s"${name}Pre")
     )
 
   def fromPost(proc: Procedure, body:Assert) =
@@ -33,7 +33,7 @@ object Predicate:
     Predicate(
       proc.signature.name.copy(name),
       proc.signature.params.map(_.name) ++ buildReturns(proc.signature.returnCount),
-      renamePred(body, "post", s"${name}Post"))
+      body.renamePred("post", s"${name}Post"))
 
 
 private def buildReturns(returnCount: Int): List[Name] =
@@ -41,16 +41,17 @@ private def buildReturns(returnCount: Int): List[Name] =
     Name("result", Some(i))
 
 
-private def renamePred(body: Assert, original: String, name: String): Assert = body match
-    case SepAnd(left, right) => SepAnd(renamePred(left, original, name), renamePred(right, original, name))
-    case SepImp(left, right) => SepImp(renamePred(left, original, name), renamePred(right, original, name))
-    case CoImp(left, right) => CoImp(renamePred(left, original, name), renamePred(right, original, name))
-    case Septract(left, right) => Septract(renamePred(left, original, name), renamePred(right, original, name))
-    case Imp(left, right) => Imp(renamePred(left, original, name), renamePred(right, original, name))
-    case Exists(x, body) => Exists(x, renamePred(body, original, name))
-    case ForAll(x, body) =>  ForAll(x, renamePred(body, original, name))
-    case Pred(pred, args) if pred.name == original => Pred(Name(name, index = pred.index), args)
-    case And(left, right) => And(renamePred(left, original, name), renamePred(right, original, name))
-    case Case(test, ifTrue, ifFalse) => Case(test, renamePred(ifTrue, original, name), renamePred(ifFalse, original, name))
-    case AssertList(asserts) => AssertList(asserts.map(renamePred(_, original, name)))
-    case other => other
+extension (body: Assert)
+  private def renamePred(original: String, name: String): Assert = body match
+      case SepAnd(left, right) => SepAnd(left.renamePred(original, name), right.renamePred(original, name))
+      case SepImp(left, right) => SepImp(left.renamePred(original, name), right.renamePred(original, name))
+      case CoImp(left, right) => CoImp(left.renamePred(original, name), right.renamePred(original, name))
+      case Septract(left, right) => Septract(left.renamePred(original, name), right.renamePred(original, name))
+      case Imp(left, right) => Imp(left.renamePred(original, name), right.renamePred(original, name))
+      case Exists(x, body) => Exists(x, body.renamePred(original, name))
+      case ForAll(x, body) =>  ForAll(x, body.renamePred(original, name))
+      case Pred(pred, args) if pred.name == original => Pred(Name(name, index = pred.index), args)
+      case And(left, right) => And(left.renamePred(original, name), right.renamePred(original, name))
+      case Case(test, ifTrue, ifFalse) => Case(test, ifTrue.renamePred(original, name), ifFalse.renamePred(original, name))
+      case AssertList(asserts) => AssertList(asserts.map(_.renamePred(original, name)))
+      case other => other
