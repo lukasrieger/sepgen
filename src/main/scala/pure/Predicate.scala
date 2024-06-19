@@ -7,7 +7,7 @@ case class Predicate(name: Name, params: List[Name], body: Assert):
 
 
 def pretty(names: List[Name]): String =
-  names.map(_.name).mkString("(", ", ", ")")
+  names.mkString("(", ", ", ")")
 
 
 extension (prePost: (Predicate, Predicate))
@@ -20,12 +20,25 @@ extension (prePost: (Predicate, Predicate))
     prePost
 
 object Predicate:
-  def fromPre(name: Name, params: List[Name], body: Assert) =
-    Predicate(Name(s"${name.name}Pre", name.index), params, renamePred(body, "pre", s"${name.name}Pre"))
+  def fromPre(proc: Procedure, body: Assert) =
+    val name = s"${proc.signature.name}Pre"
+    Predicate(
+      proc.signature.name.copy(name),
+      proc.signature.params.map(_.name),
+      renamePred(body, "pre", s"${name}Pre")
+    )
 
-  def fromPost(name: Name, params: List[Name], body:Assert) =
-    Predicate(Name(s"${name.name}Post", name.index), params, renamePred(body, "post", s"${name.name}Post"))
+  def fromPost(proc: Procedure, body:Assert) =
+    val name = s"${proc.signature.name}Post"
+    Predicate(
+      proc.signature.name.copy(name),
+      proc.signature.params.map(_.name) ++ buildReturns(proc.signature.returnCount),
+      renamePred(body, "post", s"${name}Post"))
 
+
+private def buildReturns(returnCount: Int): List[Name] =
+  List.tabulate(returnCount): i =>
+    Name("result", Some(i))
 
 
 private def renamePred(body: Assert, original: String, name: String): Assert = body match

@@ -9,8 +9,8 @@ private type Heap = List[Assert]
 
 def infer(proc: Procedure): (Predicate, Predicate) =
   infer(proc.body) map simplify bimap (
-    pre = Predicate.fromPre(proc.signature.name, proc.signature.params.map(_.name), _),
-    post = Predicate.fromPost(proc.signature.name, proc.signature.params.map(_.name), _)
+    pre = Predicate.fromPre(proc, _),
+    post = Predicate.fromPost(proc, _)
   )
 
 def infer(program: Program): (Pre, Post) =

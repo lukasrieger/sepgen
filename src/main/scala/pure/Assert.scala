@@ -19,7 +19,7 @@ case object Emp extends Assert:
   override def subst(su: Map[Var, Expr]) = this
 
 case class SepAnd(left: Assert, right: Assert) extends Assert:
-  override def toString: String = s"($left ** $right)"
+  override def toString: String = s"$left ** $right"
 
   override def rename(re: Map[Var, Var]) =
     SepAnd(left rename re, right rename re)

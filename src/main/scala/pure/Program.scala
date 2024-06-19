@@ -47,12 +47,15 @@ package ProgramDsl:
     given s: ProgramScope = new ProgramScope(
       ProcSignature(
         Name(name),
-        args.map(n => Var(Name(n))).toList
+        args.map(n => Var(Name(n))).toList,
+        0
       )
     ) {}
 
     val _ = init
-    Procedure(s.procedure, Program.Block(s._program.toList))
+    val program = s._program.result()
+    val retCount = accumulateReturns(program)
+    Procedure(s.procedure.copy(returnCount = retCount), Program.Block(program))
 
   def $(using s: ProgramScope): VarScope = new VarScope {}
 
@@ -153,3 +156,13 @@ package ProgramDsl:
     infix def =:= (other: Expr): Eq = Eq(symToVar(d),other)
     infix def =:= (other: Int): Eq = Eq(symToVar(d), Lit(other))
     infix def =:= (other: DynamicSymbol): Eq = Eq(symToVar(d), symToVar(other))
+
+
+private def accumulateReturns(programs: List[Program]): Int =
+  programs match
+    case Program.Block(programs) :: rest => accumulateReturns(programs) max accumulateReturns(rest)
+    case Program.If(_, left, right) :: rest => accumulateReturns(List(left, right)) max accumulateReturns(rest)
+    case Program.While(_, _, body) :: rest => accumulateReturns(List(body)) max accumulateReturns(rest)
+    case Program.Return(ret) :: rest => ret.size max accumulateReturns(rest)
+    case _ :: rest=> accumulateReturns(rest)
+    case _ => 0

@@ -50,7 +50,7 @@ object Examples:
       when($.curVal =:= $.element):
         returns($.next)
       .otherwise:
-        call_rec($.next, $.newNext)
+        call_rec($.next, $.element)($.newNext)
         store ($.newNext) in $.list.next
         returns($.list)
 
@@ -63,7 +63,7 @@ object Examples:
         returns(true)
       .otherwise:
         $.next <-- $.list.next
-        call_rec($.next)($.found)
+        call_rec($.next, $.element)($.found)
         returns ($.found)
 
   val listReverse = program("listReverse")("curr"):
