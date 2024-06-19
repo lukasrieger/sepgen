@@ -10,6 +10,6 @@ case class Name(name: String, index: Option[Int] = None):
 
   def toLabel: String = name ~~ index
 
-  override def toString: String = name __ index
+  override def toString: String = name __ index.flatMap(i => if (i > 0) Some(i) else None)
 
 

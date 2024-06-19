@@ -37,46 +37,45 @@ package ProgramDsl:
   given symToVar: Conversion[DynamicSymbol, Var] = (s: DynamicSymbol) => Var(Name(s.symbol))
   given symToExp: Conversion[DynamicSymbol, Expr] = (s: DynamicSymbol) => Var(Name(s.symbol))
 
-  trait ProgramScope[T <: Int](val procedure: ProcSignature):
+  trait ProgramScope(val procedure: ProcSignature):
     val _program: ListBuffer[Program] = ListBuffer()
 
   trait VarScope extends Dynamic:
     def selectDynamic(name: String): DynamicSymbol = DynamicSymbol(name)
 
-  inline def program[T <: Int](name: String)(args: String*)(init: ProgramScope[T] ?=> Unit): Procedure =
-    given s: ProgramScope[T] = new ProgramScope[T](
+  inline def program(name: String)(args: String*)(init: ProgramScope ?=> Unit): Procedure =
+    given s: ProgramScope = new ProgramScope(
       ProcSignature(
         Name(name),
-        args.map(n => Var(Name(n))).toList,
-        constValue[T]
+        args.map(n => Var(Name(n))).toList
       )
     ) {}
 
     val _ = init
     Procedure(s.procedure, Program.Block(s._program.toList))
 
-  def $(using s: ProgramScope[_]): VarScope = new VarScope {}
+  def $(using s: ProgramScope): VarScope = new VarScope {}
 
-  def assign(x: Var, expr: Expr)(using s: ProgramScope[_]): Unit =
+  def assign(x: Var, expr: Expr)(using s: ProgramScope): Unit =
     s._program += Program.Assign(x, expr)
 
-  def load(x: Var, pointer: Expr, field: Option[String] = None)(using s: ProgramScope[_]): Unit =
+  def load(x: Var, pointer: Expr, field: Option[String] = None)(using s: ProgramScope): Unit =
     s._program += Program.Load(x, pointer, field)
 
-  def load(x: Var, partial: StructPointer)(using s: ProgramScope[_]): Unit =
+  def load(x: Var, partial: StructPointer)(using s: ProgramScope): Unit =
     s._program += Program.Load(x, partial.variable, Some(partial.field))
 
-  def store(pointer: Expr, arg: Expr, field: Option[String] = None)(using s: ProgramScope[_]): Unit =
+  def store(pointer: Expr, arg: Expr, field: Option[String] = None)(using s: ProgramScope): Unit =
     s._program += Program.Store(pointer, arg, field)
 
-  def store(partial: StructPointer, arg: Expr)(using s: ProgramScope[_]): Unit =
+  def store(partial: StructPointer, arg: Expr)(using s: ProgramScope): Unit =
     s._program += Program.Store(partial.variable, arg, Some(partial.field))
 
   def store(arg: Expr): PartialStore =
     PartialStore(arg)
 
-  inline def when[T <: Int](test: Expr)(ifTrue: ProgramScope[T] ?=> Unit)(using s: ProgramScope[T]): PartialWhen =
-    given subScope: ProgramScope[T] = new ProgramScope[T](s.procedure) {}
+  inline def when(test: Expr)(ifTrue: ProgramScope ?=> Unit)(using s: ProgramScope): PartialWhen =
+    given subScope: ProgramScope = new ProgramScope(s.procedure) {}
 
     val _ = ifTrue
     if subScope._program.size == 1 then
@@ -84,19 +83,22 @@ package ProgramDsl:
     else
       PartialWhen(test, Program.Block(subScope._program.toList))
 
-  def call(name: Name, args: List[Var], rt: Var*)(using s: ProgramScope[_]): Unit =
+  def call(name: Name, args: List[Var], rt: Var*)(using s: ProgramScope): Unit =
     s._program += Program.Call(name, args, rt.toList)
 
-  def call(name: String, args: List[Var], rt: Var*)(using s: ProgramScope[_]): Unit =
+  def call(name: String, args: List[Var], rt: Var*)(using s: ProgramScope): Unit =
     s._program += Program.Call(Name(name), args, rt.toList)
 
-  def call(name: String)(args: Var*)(rt: Var*)(using s: ProgramScope[_]): Unit =
+  def call(name: String)(args: Var*)(rt: Var*)(using s: ProgramScope): Unit =
     s._program += Program.Call(Name(name), args.toList, rt.toList)
 
-  def call_rec(args: Var*)(rts: Var*)(using s: ProgramScope[_]): Unit =
+  def call_rec(args: Var*)(rts: Var*)(using s: ProgramScope): Unit =
     s._program += Program.Call(s.procedure.name, args.toList, rts.toList)
 
-  inline def returns(ret: Expr)(using s: ProgramScope[1]) =
+  def call_rec(args: Var*)(using s: ProgramScope): Unit =
+    s._program += Program.Call(s.procedure.name, args.toList, List.empty)
+
+  inline def returns(ret: Expr)(using s: ProgramScope) =
     s._program += Program.Return(List(ret))
 
   type IsExpr[X] <: Boolean = X match
@@ -105,10 +107,7 @@ package ProgramDsl:
     case DynamicSymbol => true
     case _ => false
 
-  inline def returns[R <: Tuple, T <: Int](ret: R)
-                                          (using s: ProgramScope[T])
-                                          (using Size[R] =:= T)
-                                          (using Size[Filter[R, IsExpr]] =:= T) =
+  inline def returns(ret: Tuple)(using s: ProgramScope) =
     s._program += Program.Return(
       ret.productIterator.map:
         case s@(_: Expr) => s
@@ -120,17 +119,17 @@ package ProgramDsl:
 
   extension (v: Var)
     infix def |->(field: String): StructPointer = StructPointer(v, field)
-    infix def <--(pointer: Expr)(using s: ProgramScope[_]): Unit = load(v, pointer, None)
-    infix def <--(partial: StructPointer)(using s: ProgramScope[_]): Unit = load(v, partial)
-    infix def :=(expr: Expr)(using s: ProgramScope[_]): Unit = assign(v, expr)
+    infix def <--(pointer: Expr)(using s: ProgramScope): Unit = load(v, pointer, None)
+    infix def <--(partial: StructPointer)(using s: ProgramScope): Unit = load(v, partial)
+    infix def :=(expr: Expr)(using s: ProgramScope): Unit = assign(v, expr)
 
   extension (partial: PartialStore)
-    infix def in(pointer: Expr)(using s: ProgramScope[_]) = store(pointer, partial.arg, None)
-    infix def in(pointer: StructPointer)(using s: ProgramScope[_]) = store(pointer, partial.arg)
+    infix def in(pointer: Expr)(using s: ProgramScope) = store(pointer, partial.arg, None)
+    infix def in(pointer: StructPointer)(using s: ProgramScope) = store(pointer, partial.arg)
 
   extension (when: PartialWhen)
-    inline infix def otherwise[T <: Int](ifFalse: ProgramScope[T] ?=> Unit)(using s: ProgramScope[T]): Unit =
-      given subScope: ProgramScope[T] = new ProgramScope[T](s.procedure) {}
+    inline infix def otherwise(ifFalse: ProgramScope ?=> Unit)(using s: ProgramScope): Unit =
+      given subScope: ProgramScope = new ProgramScope(s.procedure) {}
 
       val _ = ifFalse
       if subScope._program.size == 1 then
@@ -150,7 +149,7 @@ package ProgramDsl:
     infix def >(other: Expr) = BinOp(e, Op.Gt, other)
     infix def <(other: Expr) = BinOp(e, Op.Lt, other)
 
-  // workaround for https://youtrack.jetbrains.com/issue/SCL-22008
   extension(d: DynamicSymbol)
     infix def =:= (other: Expr): Eq = Eq(symToVar(d),other)
     infix def =:= (other: Int): Eq = Eq(symToVar(d), Lit(other))
+    infix def =:= (other: DynamicSymbol): Eq = Eq(symToVar(d), symToVar(other))

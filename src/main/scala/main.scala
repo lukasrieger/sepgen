@@ -1,5 +1,7 @@
 import util.{info, initLogger}
 import wvlet.log.Logger
+import pure.tapPre
+import pure.tapPost
 
 given globalLogger: Logger = initLogger()
 
@@ -8,12 +10,9 @@ def main(): Unit =
 
   Examples.all.foreach: proc =>
     infer(proc)
-      .pre: p =>
+      .tapPre: p =>
         info(s"${proc.signature.name} Pre:")
         info(s"  $p")
-      .post: q =>
+      .tapPost: q =>
         info(s"${proc.signature.name} Post:")
         info(s"  $q")
-
-
-// 

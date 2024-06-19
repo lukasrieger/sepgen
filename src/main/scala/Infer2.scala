@@ -1,14 +1,17 @@
 import pure.Syntax.**
 import pure.*
 
-import scala.annotation.tailrec
+import scala.annotation.{tailrec, targetName}
 
 type Pre = Assert
 type Post = Assert
 private type Heap = List[Assert]
 
-def infer(proc: Procedure): (Pre, Post) =
-  infer(proc.body) map simplify
+def infer(proc: Procedure): (Predicate, Predicate) =
+  infer(proc.body) map simplify bimap (
+    pre = Predicate.fromPre(proc.signature.name, proc.signature.params.map(_.name), _),
+    post = Predicate.fromPost(proc.signature.name, proc.signature.params.map(_.name), _)
+  )
 
 def infer(program: Program): (Pre, Post) =
   infer(List(program))(List.empty)
@@ -105,7 +108,7 @@ extension (prePost: (Pre, Post))
   infix def map(f: Assert => Assert): (Pre, Post) =
     f(prePost._1) -> f(prePost._2)
 
-  infix def bimap(pre: Assert => Assert, post: Assert => Assert): (Pre, Post) =
+  infix def bimap[A](pre: Assert => A, post: Assert => A): (A, A) =
     pre(prePost._1) -> post(prePost._2)
 
   infix def tap(pre: Assert => Unit, post: Assert => Unit): (Pre, Post) =
@@ -120,7 +123,7 @@ extension (prePost: (Pre, Post))
   infix def post(post: Assert => Unit): (Pre, Post) =
     post(prePost._2)
     prePost
-
+    
 
 private def simplify(assert: Assert): Assert =
   val simplified = assert match

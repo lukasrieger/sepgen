@@ -8,3 +8,5 @@ object Conversions:
   given Conversion[List[Assert], AssertList] = (asserts: List[Assert]) => AssertList(asserts)
 
   given Conversion[Int, Lit] = (i: Int) => Lit(i)
+
+  given Conversion[Boolean, Lit] = (b: Boolean) => Lit(b)
