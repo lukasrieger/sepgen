@@ -6,11 +6,6 @@ given globalLogger: Logger = initLogger()
 
 @main
 def main(): Unit =
-//  val (pre, post) = infer(Examples.testHead)
-//  val preT = pre.abstractRepr()
-//
-//  println(preT)
-
   Examples.all.foreach: proc =>
     infer(proc)
       .tapPre: p =>
