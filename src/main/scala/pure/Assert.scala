@@ -2,6 +2,7 @@ package pure
 
 import cats.Applicative
 import cats.syntax.functor.*
+import cats.syntax.all.toTraverseOps
 import monocle.Traversal
 import monocle.function.Plated
 import pure.Conversions.given_Conversion_List_ExprList
@@ -146,24 +147,19 @@ case class AssertList(asserts: List[Assert]) extends Assert:
 
 
 object Assert:
-  given assertPlated: Plated[Assert] = Plated(
+  given assertTraversal: Traversal[Assert, Assert] =
     new Traversal[Assert, Assert]:
-      override def modifyA[F[_] : Applicative](using f: Assert => F[Assert])(s: Assert): F[Assert] = s match
-        case SepAnd(l, r) => appTraverse(l, r, SepAnd.apply)
-        case SepImp(l, r) => appTraverse(l, r, SepImp.apply)
-        case CoImp(l, r) => appTraverse(l, r, CoImp.apply)
-        case Septract(l, r) => appTraverse(l, r, Septract.apply)
-        case Imp(l, r) => appTraverse(l, r, Imp.apply)
-        case Exists(x, e) => f(e).map(Exists(x, _))
-        case ForAll(x, e) => f(e).map(ForAll(x, _))
-        case _ => Applicative[F].pure(s)
-  )
+      override def modifyA[F[_]](f: Assert => F[Assert])(s: Assert)(using app: Applicative[F]): F[Assert] =
+        s match
+          case SepAnd(l, r) => app.product(f(l), f(r)).map(SepAnd.apply)
+          case SepImp(l, r) => app.product(f(l), f(r)).map(SepImp.apply)
+          case CoImp(l, r) => app.product(f(l), f(r)).map(CoImp.apply)
+          case Septract(l, r) => app.product(f(l), f(r)).map(Septract.apply)
+          case Imp(l, r) => app.product(f(l), f(r)).map(Imp.apply)
+          case Exists(x, e) => f(e).map(Exists(x, _))
+          case ForAll(x, e) => f(e).map(ForAll(x, _))
+          case AssertList(asserts) => asserts.traverse(f).map(AssertList.apply)
+          case Case(test, ifTrue, ifFalse) => app.product(f(ifTrue), f(ifFalse)).map((a, b) => Case(test, a, b))
+          case _ => app.pure(s)
 
-  private def appTraverse[F[_] : Applicative](
-                                               l: Assert,
-                                               r: Assert,
-                                               ctor: (Assert, Assert) => Assert
-                                             )(using f: Assert => F[Assert]): F[Assert] =
-    Applicative[F]
-      .product(f(l), f(r))
-      .map(ctor.tupled)
+  given assertPlated: Plated[Assert] = Plated(assertTraversal)

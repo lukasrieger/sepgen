@@ -1,6 +1,6 @@
 import util.{info, initLogger}
 import wvlet.log.Logger
-import pure.{findSymolicRefs, tapPost, tapPre}
+import pure.{collectSymbolicReferences, tapPost, tapPre}
 
 given globalLogger: Logger = initLogger()
 
@@ -20,7 +20,7 @@ def main(): Unit =
         info(s"  $q")
       .tapPre: p =>
         info(s"  With abstract repr:")
-        info(s"    ${p.abstractRepr()}")
+        info(s"    ${p.toAbstractRepr}")
       .tapPost: q =>
-        info(s"    ${q.abstractRepr()}")
+        info(s"    ${q.toAbstractRepr}")
 

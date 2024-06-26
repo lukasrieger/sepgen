@@ -10,27 +10,20 @@ case class Predicate(
                       body: Assert
                     ):
 
-  def abstractRepr(): Predicate =
-
-    val reprs = findSymolicRefs(body)
-    val transformedBody = rewriteSymbolicRefs(body, reprs) pipe rewriteNullCond
-    val abstracts = reprs.toAbstractParams
-    val renamed = reprs.foldLeft(transformedBody) {
+  def toAbstractRepr: Predicate =
+    val (transformed, symbols) = body.toAbstractRepr
+    val abstracts = symbols.toAbstractParams
+    val renamed = symbols.foldLeft(transformed):
       case (body, (ptr, _)) => body.rename(
-        Map(Var(name = Name(name = s"_REPR_$ptr")) -> Var(abstracts(ptr)))
+        Map(Var(name = reprNameOf(ptr)) -> Var(abstracts(ptr)))
       )
-    }
-
-    Predicate(
-      name,
-      params,
-      Some(abstracts.values.toList),
-      renamed
+      
+    copy(
+      abstractReprs = Some(abstracts.values.toList),
+      body = renamed
     )
-
-
+  
   override def toString: String = s"${name.name}${params.pretty()}${abstractReprs.pretty()} <== $body"
-
 
 
 
