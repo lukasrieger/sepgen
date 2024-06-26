@@ -1,12 +1,14 @@
 import util.{info, initLogger}
 import wvlet.log.Logger
-import pure.tapPre
-import pure.tapPost
+import pure.{findSymolicRefs, tapPost, tapPre}
 
 given globalLogger: Logger = initLogger()
 
 @main
 def main(): Unit =
+  
+  val x = infer(Examples.testHead)
+  println(findSymolicRefs(x._1.body))
 
   Examples.all.foreach: proc =>
     infer(proc)

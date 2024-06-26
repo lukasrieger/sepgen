@@ -63,6 +63,7 @@ object Examples:
         returns(true)
       .otherwise:
         $.next <-- $.list.next
+//        $.found <--local
         call_rec($.next, $.element)($.found)
         returns ($.found)
 
@@ -96,12 +97,26 @@ object Examples:
     when($.next =:= 0):
       store($.second) in $.first.next
     .otherwise:
-      call_rec($.next, $.second)($.ignored)
+      call_rec($.next, $.second)
+
+  val testHead = program("headTest")("list1", "list2"):
+    $.sNext <-- $.list1.next
+    $.sValue <-- $.list1.value
+
+    $.ssNext <-- $.list2.next
+    $.ssValue <-- $.list2.value
 
 
 
-  val all = List(listSum, listLength, listReverse, dll_to_bst, appendList, swapPtrs, findElement, incrementAll, removeElement)
-
-  // TODO: FIND + REMOVE + INCREMENT ALL + (ALL FOLD/REDUCES/FILTERS)
-  // TODO : Abstract before talk (goals of thesis etc.)
-  //
+  val all = List(
+    listSum,
+    listLength,
+    listReverse,
+    dll_to_bst,
+    appendList,
+    swapPtrs,
+    findElement,
+    incrementAll,
+    removeElement,
+    testHead
+  )
