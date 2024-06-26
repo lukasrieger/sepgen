@@ -106,6 +106,8 @@ object Examples:
     $.ssNext <-- $.list2.next
     $.ssValue <-- $.list2.value
 
+    call_rec($.sNext, $.ssNext)
+
 
 
   val all = List(

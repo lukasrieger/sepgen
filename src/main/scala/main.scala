@@ -6,9 +6,10 @@ given globalLogger: Logger = initLogger()
 
 @main
 def main(): Unit =
-  
-  val x = infer(Examples.testHead)
-  println(findSymolicRefs(x._1.body))
+//  val (pre, post) = infer(Examples.testHead)
+//  val preT = pre.abstractRepr()
+//
+//  println(preT)
 
   Examples.all.foreach: proc =>
     infer(proc)
@@ -17,3 +18,9 @@ def main(): Unit =
         info(s"  $p")
       .tapPost: q =>
         info(s"  $q")
+      .tapPre: p =>
+        info(s"  With abstract repr:")
+        info(s"    ${p.abstractRepr()}")
+      .tapPost: q =>
+        info(s"    ${q.abstractRepr()}")
+

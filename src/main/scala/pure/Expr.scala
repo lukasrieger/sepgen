@@ -80,6 +80,9 @@ case class App(fun: Name, args: List[Expr]) extends Expr:
   override def subst(su: Map[Var, Expr]): App =
     App(fun, args subst su)
 
+  override def toString: String =
+    s"$fun${args.mkString("(", ", ", ")")}"
+
 
 case class Var(name: Name) extends Expr with Expr.X:
   override def fresh(index: Int): Var = Var(name.withIndex(index))
@@ -119,3 +122,4 @@ case class Bind(
     rename(re)
 
   override def bound: Set[Var] = Set(formals: _*)
+

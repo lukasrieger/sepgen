@@ -1,13 +1,49 @@
 package pure
 
+import scala.util.chaining._
 
-// Idea: Split by constructors?
-case class Predicate(name: Name, params: List[Name], body: Assert):
-  override def toString: String = s"${name.name}${params.pretty()} <== $body"
+
+case class Predicate(
+                      name: Name,
+                      params: List[Name],
+                      abstractReprs: Option[List[Name]],
+                      body: Assert
+                    ):
+
+  def abstractRepr(): Predicate =
+
+    val reprs = findSymolicRefs(body)
+    val transformedBody = rewriteSymbolicRefs(body, reprs) pipe rewriteNullCond
+    val abstracts = reprs.toAbstractParams
+    val renamed = reprs.foldLeft(transformedBody) {
+      case (body, (ptr, _)) => body.rename(
+        Map(Var(name = Name(name = s"_REPR_$ptr")) -> Var(abstracts(ptr)))
+      )
+    }
+
+    Predicate(
+      name,
+      params,
+      Some(abstracts.values.toList),
+      renamed
+    )
+
+
+  override def toString: String = s"${name.name}${params.pretty()}${abstractReprs.pretty()} <== $body"
+
+
+
+
+extension (abstractReprs: Option[List[Name]])
+  private def pretty(): String =
+    abstractReprs.map(_.pretty()).getOrElse("")
 
 extension (params: List[Name])
   private def pretty(): String =
-    params.mkString("(", ", ", ")")
+    if (params.isEmpty)
+      ""
+    else
+      params.mkString("(", ", ", ")")
 
 
 extension (prePost: (Predicate, Predicate))
@@ -25,7 +61,8 @@ object Predicate:
     Predicate(
       proc.signature.name.copy(name),
       proc.signature.params.map(_.name),
-      body.renamePred("pre", s"${name}Pre")
+      None,
+      body.renamePred("pre", s"$name")
     )
 
   def fromPost(proc: Procedure, body:Assert) =
@@ -33,7 +70,8 @@ object Predicate:
     Predicate(
       proc.signature.name.copy(name),
       proc.signature.params.map(_.name) ++ buildReturns(proc.signature.returnCount),
-      body.renamePred("post", s"${name}Post"))
+      None,
+      body.renamePred("post", s"$name"))
 
 
 private def buildReturns(returnCount: Int): List[Name] =
