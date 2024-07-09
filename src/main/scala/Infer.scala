@@ -4,7 +4,7 @@ import pure.Syntax.**
 
 import scala.annotation.tailrec
 
-private type Heap = List[Assert]
+private type Heap_ = List[Assert]
 
 def inferPre(program: Program): Assert =
   inferPre(List(program))(List.empty)
@@ -12,10 +12,10 @@ def inferPre(program: Program): Assert =
 def inferPost(program: Program): Assert =
   inferPost(List(program))(List.empty)
 
-private def inferPre(program: Program)(heap: Heap): Assert =
+private def inferPre(program: Program)(heap: Heap_): Assert =
   inferPre(List(program))(heap)
 
-private def inferPre(proc: List[Program])(heap: Heap): Assert =
+private def inferPre(proc: List[Program])(heap: Heap_): Assert =
   proc match
     case Program.Assign(x, expr) :: rest =>
       inferPre(rest)(heap) subst Map(x -> expr)
@@ -66,10 +66,10 @@ private def inferPre(proc: List[Program])(heap: Heap): Assert =
     case Program.Return(_) :: rest => Emp ** inferPre(rest)(heap)
     case Nil => Emp
 
-private def inferPost(program: Program, heap: Heap): Assert =
+private def inferPost(program: Program, heap: Heap_): Assert =
   inferPost(List(program))(heap)
 
-private def inferPost(proc: List[Program])(heap: Heap): Assert =
+private def inferPost(proc: List[Program])(heap: Heap_): Assert =
   proc match
     case Program.Assign(x, expr) :: rest =>
       inferPost(rest)(heap) subst Map(x -> expr)
@@ -127,17 +127,17 @@ private def inferPost(proc: List[Program])(heap: Heap): Assert =
 
 
 extension (assertion: Assert)
-  infix def ***(heap: Heap): Heap = assertion :: heap
+  infix def ***(heap: Heap_): Heap_ = assertion :: heap
 
 
-extension (heap: Heap)
+extension (heap: Heap_)
   @tailrec infix def load(pointer: Expr, field: Option[String] = None): Option[Expr] =
     heap match
       case PointsTo(`pointer`, `field`, value) :: _ => Some(value)
       case _ :: tail => tail load(pointer, field)
       case Nil => Option.empty
 
-  @tailrec infix def store(pto: PointsTo, seen: Heap = List.empty): Heap =
+  @tailrec infix def store(pto: PointsTo, seen: Heap_ = List.empty): Heap_ =
     heap match
       case PointsTo(pto.pointer, pto.field, _) :: rest =>
         seen ::: pto :: rest

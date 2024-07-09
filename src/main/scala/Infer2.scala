@@ -5,7 +5,7 @@ import scala.annotation.{tailrec, targetName}
 
 type Pre = Assert
 type Post = Assert
-private type Heap = List[Assert]
+type Heap = List[Assert]
 
 def infer(proc: Procedure): (Predicate, Predicate) =
   infer(proc.body) map simplify bimap (
