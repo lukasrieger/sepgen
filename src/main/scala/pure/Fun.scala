@@ -38,14 +38,14 @@ extension (cont: LSRefContainer)
 
 extension (assert: Assert)
   def collectSymbolicReferences: LSRefContainer =
-    Foldable[LazyList].foldMap(universe(assert)) {
+    Foldable[LazyList].foldMap(universe(assert)):
       case PointsTo(pointer: Var, field, arg: Var) if field.contains("value") =>
         Map(pointer -> LSRef(None, Some(arg)))
       case PointsTo(pointer: Var, field, arg: Var) if field.contains("next") =>
         Map(pointer -> LSRef(Some(arg), None))
       case _ =>
         Map.empty
-    }
+
 
   private def applyRewrites(cs: Case, rewrites: LSRefContainer) =
     rewrites.foldLeft(cs):
