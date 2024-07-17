@@ -1,5 +1,7 @@
+import monocle.Monocle.transform
 import pure.Syntax.**
 import pure.{And, Assert, AssertList, BinOp, Bind, Case, CoImp, Emp, Eq, Exists, Expr, ForAll, Imp, Lit, Name, Not, PointsTo, Pred, Predicate, Procedure, Program, Pure, SepAnd, SepImp, Septract, Var}
+
 import scala.annotation.tailrec
 
 
@@ -80,11 +82,11 @@ def inferU(prg: Program, pre: Heap): Assert =
         .reduceRight(_ ** _)
 
 
-def eval(pure: Expr, pre: Heap) = pure match
-  case NullCheck(on) if pre isNullPtr on => true
-  case NullCheck(on) if pre defines on => false
-  case GeneralEq(on, expr) if pre defines on =>
-    pre.load2(on, None) match
+def eval(condition: Expr, under: Heap) = condition match
+  case NullCheck(on) if under isNullPtr on => true
+  case NullCheck(on) if under defines on => false
+  case GeneralEq(on, expr) if under defines on =>
+    under.load2(on, None) match
       case Some(`expr`) => true
       case None => false
   case _ => false
@@ -118,6 +120,14 @@ extension (heap: Heap)
     case Pred(_, args) :: _ => Some(args.last.asInstanceOf[Var])
     case _ :: tail => tail.hypothesis()
     case Nil => None
+
+  infix def dropHypothesis(name: Name): Heap =
+    transform[Assert]:
+      case Pred(`name`, _) => Emp
+      case other => other
+    .apply(heap.toAssert)
+    .toHeap
+      
 
 
 object NullCheck:
