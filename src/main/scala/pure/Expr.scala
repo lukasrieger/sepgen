@@ -102,6 +102,9 @@ case class Lit(any: Any) extends Expr:
   override def subst(su: Map[Var, Expr]): Expr = this
 
   override def toString: String = any.toString
+  
+object Lit:
+  def Nil = Lit("Nil")
 
 case class Bind(
                  quantifier: Quantifier,
