@@ -24,10 +24,12 @@ val ls = Predicate(
 @main
 def main(): Unit =
   println(ls)
-  val q = infer3(Examples.listLength, ls)
+  val qOld = infer3(Examples.listLength, ls)
+  val qNext = inferNext(Examples.listLength, ls)
 
   println("DONE.")
-  info(q)
+  info(qOld)
+  info(qNext)
 //  Examples.all.foreach: proc =>
 //    infer(proc)
 //      .tapPre: p =>

@@ -92,6 +92,7 @@ case class Var(name: Name) extends Expr with Expr.X:
   override def toString: String = name.toString
 
 object Var:
+  def apply(name: String, index: Int): Var = Var(Name(name).withIndex(index))
   def any = Var(Name("_"))
 
 case class Lit(any: Any) extends Expr:

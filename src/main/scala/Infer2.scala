@@ -7,6 +7,9 @@ type Pre = Assert
 type Post = Assert
 type Heap = List[Assert]
 
+object Heap:
+  def empty: Heap = List.empty
+
 def infer(proc: Procedure): (Predicate, Predicate) =
   infer(proc.body) map simplify bimap (
     pre = Predicate.fromPre(proc, _),
