@@ -2,7 +2,8 @@ import inductive.Pattern.{Cons, Free, Nil}
 import inductive.{Head, InductivePred}
 import util.{info, initLogger}
 import wvlet.log.Logger
-import pure.{Assert, Case, Eq, Exists, Lit, Name, PointsTo, Pred, Predicate, Pure, SepAnd, Var, collectSymbolicReferences, tapPost, tapPre}
+import pure.{Case, Eq, Exists, Lit, Name, PointsTo, Pred, Predicate, Pure, SepAnd, Var, collectSymbolicReferences, tapPost, tapPre}
+import wvlet.log.Logger.rootLogger.{debug, trace}
 
 given globalLogger: Logger = initLogger()
 
@@ -134,8 +135,8 @@ def testInductiveLs = InductivePred(
   name = Name("ls"),
   arity = 2,
   constructors = Seq(
-    Head(Seq(Var(Name("_")) -> Free(Name("p")), Var(Name("_")) ->  Nil)) -> PointsTo(Var(Name("p")), None, Lit("null")),
-    Head(Seq(Var(Name("_")) -> Free(Name("p")), Var(Name("_")) -> Cons(Name("x"), Name("xs")))) -> Exists(
+    Head(Seq(Var(Name("_")) -> Free(Var(Name("p"))), Var(Name("_")) ->  Nil)) -> PointsTo(Var(Name("p")), None, Lit("null")),
+    Head(Seq(Var(Name("_")) -> Free(Var(Name("p"))), Var(Name("_")) -> Cons(Var(Name("x")), Var(Name("xs"))))) -> Exists(
       Var(Name("n'")),
       SepAnd(
         PointsTo(Var(Name("p")), Some("next"), Var(Name("n'"))),
@@ -148,11 +149,11 @@ def testInductiveLs = InductivePred(
 @main
 def main(): Unit =
   info("---HANDWRITTEN---")
-  info(testInductiveLs)
+  trace(testInductiveLs)
   info("---DERIVED FROM---")
-  info(ls)
+  trace(tripleLs)
   info("---RESULTING INDUCTIVE PREDICATE---")
-  info(InductivePred.fromPred(Name("ls"), tripleLs.body))
+  trace(InductivePred.fromPred(Name("ls"), tripleLs.body))
 //  println(ls)
 //  val qOld = infer3(Examples.listLength, ls)
 //  val qNext = inferNext(Examples.listLength, ls)()

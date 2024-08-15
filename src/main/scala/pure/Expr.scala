@@ -105,7 +105,7 @@ case class Lit(any: Any) extends Expr:
   override def toString: String = any.toString
   
 object Lit:
-  def Nil = Lit("Nil")
+  val Nil = Lit("Nil")
 
 case class Bind(
                  quantifier: Quantifier,
