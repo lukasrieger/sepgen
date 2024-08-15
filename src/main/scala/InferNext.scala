@@ -18,15 +18,16 @@ extension (heap: Heap)
 def inferNext(
                procedure: Procedure,
                pre: Predicate
-             ): Assert =
+             )(context: Set[Procedure] = Set()): (Assert, ContextAssert) =
   inferNext(
     procName = procedure.signature.name,
     hypName = pre.name,
     program = procedure.body,
-    pre = pre.body
+    pre = pre.body,
+    context
   )
 
-def inferNext(procName: Name, hypName: Name, program: Program, pre: Assert): Assert =
+def inferNext(procName: Name, hypName: Name, program: Program, pre: Assert, context: Set[Procedure]): (Assert, ContextAssert) =
   unfold(pre) match
     case Unfolded.Cases(cases) =>
       val inferred = cases
@@ -38,8 +39,9 @@ def inferNext(procName: Name, hypName: Name, program: Program, pre: Assert): Ass
             heap = heap,
             program = program,
             hypName = hypName,
-            procName = procName
-          )
+            procName = procName,
+            contextAssert = Map()
+          )(using context)
         .toList
 
       assert(inferred.size == 2)
@@ -48,32 +50,41 @@ def inferNext(procName: Name, hypName: Name, program: Program, pre: Assert): Ass
       println(inferred)
       println("---")
 
-      val (cond, trueBody, falseBody) =
+      val (cond, trueBodyT, falseBodyT) =
         (inferred.head._1, inferred.head._2, inferred.tail.head._2)
+
+      val (trueBody, falseBody) = (trueBodyT._1, falseBodyT._1)
 
       Case(
         test = cond,
         ifTrue = trueBody,
         ifFalse = falseBody
-      )
+      ) -> (trueBodyT._2 ++ falseBodyT._2)
 
     case Unfolded.Just(heap) => inferNext(
       path = Heap.empty,
       heap = heap,
       program = program,
       hypName = hypName,
-      procName = procName
-    )
+      procName = procName,
+      contextAssert = Map()
+    )(using context)
+
+
+type ContextAssert = Map[Name, Assert]
 
 def inferNext(
                path: Heap,
                heap: Heap,
                program: Program,
                hypName: Name,
-               procName: Name
-             ): Assert = program match
-  case Block(programs) => inferNext(path, heap, programs, hypName, procName)
-  case other => inferNext(path, heap, List(other), hypName, procName)
+               procName: Name,
+               contextAssert: ContextAssert
+             )(using context: Set[Procedure]): (Assert, ContextAssert) = program match
+  case Block(programs) => inferNext(path, heap, programs, hypName, procName, contextAssert)
+  case other => inferNext(path, heap, List(other), hypName, procName, contextAssert)
+
+
 
 
 @tailrec
@@ -82,24 +93,27 @@ def inferNext(
                heap: Heap,
                program: List[Program],
                hypName: Name,
-               procName: Name
-             ): Assert =
+               procName: Name,
+               contextAssert: ContextAssert
+             )(using context: Set[Procedure]): (Assert, ContextAssert) =
   program match
-    case Nil => heap.toAssert
+    case Nil => heap.toAssert -> contextAssert
     case pure.Program.Assign(x, expr) :: rest => inferNext(
       path,
       heap :+ Pure(x =:= expr),
       rest,
       hypName,
-      procName
+      procName,
+      contextAssert
     )
     case p@pure.Program.Load(x, pointer, field) :: rest =>
       heap load2(pointer, field) match
-        case Some(value) => inferNext(path, heap :+ Pure(x =:= value), rest, hypName, procName)
+        case Some(value) =>
+          inferNext(path, heap :+ Pure(x =:= value), rest, hypName, procName, contextAssert)
         case None =>
           println("Load missing heap :")
           println(p)
-          inferNext(path, heap, rest, hypName, procName)
+          inferNext(path, heap, rest, hypName, procName, contextAssert)
 
     case pure.Program.Store(pointer, arg, field) :: rest =>
       heap load2(pointer, field) match
@@ -108,16 +122,19 @@ def inferNext(
           heap store2 PointsTo(pointer, field, arg),
           rest,
           hypName,
-          procName
+          procName,
+          contextAssert
         )
         case None => ???
     case pure.Program.Alloc(pointer) :: rest => ???
     case pure.Program.Free(pointer) :: rest => ???
     case pure.Program.Block(programs) :: rest =>
-      programs.foldLeft[Assert](Emp): (acc, pr) =>
-        acc ** inferNext(path, heap, pr, hypName, procName)
+      programs.foldLeft[(Assert, ContextAssert)](Emp -> contextAssert): (acc, pr) =>
+        val (accAssert, contextAcc) = acc
+        val (inferAss, inferCtx) = inferNext(path, heap, pr, hypName, procName, contextAcc)
+        (accAssert ** inferAss) -> (contextAcc ++ inferCtx)
     case pure.Program.If(test, left, right) :: rest =>
-      val caseEval = if eval(
+      val (caseEval, contextAssert2: ContextAssert) = if eval(
         condition = test,
         under = path ::: heap
       ) then
@@ -126,7 +143,8 @@ def inferNext(
           heap = heap,
           program = left,
           hypName = hypName,
-          procName = procName
+          procName = procName,
+          contextAssert
         )
       else
         inferNext(
@@ -134,18 +152,51 @@ def inferNext(
           heap = heap,
           program = right,
           hypName = hypName,
-          procName = procName
+          procName = procName,
+          contextAssert
         )
 
-      inferNext(path, List(caseEval), rest, hypName, procName)
+      inferNext(path, List(caseEval), rest, hypName, procName, contextAssert ++ contextAssert2)
     case pure.Program.While(test, inv, body) :: rest => ???
-    case pure.Program.Call(name, args, rt) :: rest =>
-      assume(rt.size == 1)
+    case pure.Program.Call(name, args, rt) :: rest if name == procName =>
+      println(name)
+      assume(rt.size == 1 || rt.isEmpty)
 
       val hypothesis = heap.hypothesis().get
-      val q = Pred(Name("Q"), args ::: List(hypothesis) ::: List(rt.head))
 
-      inferNext(path, (heap dropHypothesis hypName) :+ Exists(rt.head, q), rest, hypName, procName)
+      val q = Pred(Name("Q"), args ::: List(hypothesis) ::: rt.headOption.toList)
+
+      inferNext(
+        path,
+        if (rt.isEmpty) (heap dropHypothesis hypName) :+ q else (heap dropHypothesis hypName) :+ Exists(rt.head, q),
+        rest,
+        hypName,
+        procName,
+        contextAssert)
+    case pure.Program.Call(name, args, rt) :: rest =>
+      assume(rt.size == 1 || rt.isEmpty)
+
+      val name_ = name.withIndex(scala.util.Random.between(1, 20))
+      val (pred, newContext) = inferNext(
+        procName = name,
+        hypName = name_,
+        program = context.find(_.signature.name == name).getOrElse(sys.error(s"Missing proc in context: $name")).body,
+        pre = (path ::: heap).toAssert,
+        context
+      )
+
+      val q = Pred(name_, args ::: rt.headOption.toList)
+
+      inferNext(
+        path,
+        if (rt.isEmpty) heap :+ q else heap :+ Exists(rt.head, q),
+        rest,
+        hypName,
+        procName,
+        contextAssert ++ newContext ++ Map(name_ -> pred)
+      )
+
+
     case pure.Program.Return(ret) :: rest =>
       inferNext(
         path,
@@ -154,5 +205,6 @@ def inferNext(
           .reduceRight(_ ** _),
         rest,
         hypName,
-        procName
+        procName,
+        contextAssert
       )

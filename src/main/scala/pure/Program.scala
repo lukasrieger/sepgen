@@ -1,6 +1,10 @@
 package pure
 
-import pure.Syntax.*
+import cats.Applicative
+import monocle.Traversal
+import cats.syntax.functor.*
+import cats.syntax.all.toTraverseOps
+import monocle.function.Plated
 
 import scala.compiletime.constValue
 
@@ -15,6 +19,20 @@ enum Program:
   case While(test: Expr, inv: Assert, body: Program)
   case Call(name: Name, args: List[Var], rt: List[Var])
   case Return(ret: List[Expr])
+
+
+  
+object Program:
+  given programTraversal: Traversal[Program, Program] =
+    new Traversal[Program, Program]:
+      override def modifyA[F[_]](f: Program => F[Program])(s: Program)(using app: Applicative[F]): F[Program] =
+        s match
+          case Program.Block(programs) => programs.traverse(f).map(Program.Block.apply)
+          case Program.If(test, left, right) => app.product(f(left), f(right)).map((a, b) => Program.If(test, a, b))
+          case Program.While(test, inv, body) => f(body).map(b => Program.While(test, inv, b))
+          case _ => app.pure(s)
+
+  given programPlated: Plated[Program] = Plated(programTraversal)
 
 package ProgramDsl:
 
@@ -86,7 +104,7 @@ package ProgramDsl:
     else
       PartialWhen(test, Program.Block(subScope._program.toList))
 
-  def call(name: Name, args: List[Var], rt: Var*)(using s: ProgramScope): Unit =
+  def call(name: Name, args: List[Var])(rt: Var*)(using s: ProgramScope): Unit =
     s._program += Program.Call(name, args, rt.toList)
 
   def call(name: String, args: List[Var], rt: Var*)(using s: ProgramScope): Unit =
@@ -94,6 +112,9 @@ package ProgramDsl:
 
   def call(name: String)(args: Var*)(rt: Var*)(using s: ProgramScope): Unit =
     s._program += Program.Call(Name(name), args.toList, rt.toList)
+
+  def call(name: String)(args: Var*)(using s: ProgramScope): Unit =
+    s._program += Program.Call(Name(name), args.toList, List.empty)
 
   def call_rec(args: Var*)(rts: Var*)(using s: ProgramScope): Unit =
     s._program += Program.Call(s.procedure.name, args.toList, rts.toList)

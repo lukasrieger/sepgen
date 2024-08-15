@@ -1,24 +1,34 @@
 package pure
 
-import cats.syntax.all.toTraverseOps
+
 import cats.syntax.functor.*
-import cats.{Applicative, Foldable, Monoid, Traverse}
+import cats.{Foldable, Monoid}
 import cats.derived.*
 import cats.derived.auto.monoid.given
-import cats.derived.DerivedMonoid.Strict.product
+
 import monocle.Monocle.{transform, universe}
-import monocle.Traversal
-import monocle.function.Plated
-import scala.util.chaining.scalaUtilChainingOps
 
 
 def head(of: Expr): Expr = App(fun = Name("head"), args = List(of))
 def tail(of: Expr): Expr = App(fun = Name("tail"), args = List(of))
 
+def head_(of: Var): Var = Var(Name(s"%HEAD$of"))
+def tail_(of: Var): Var = Var(Name(s"%TAIL$of"))
+
+
 case class LSRef(nextPtr: Option[Var], valuePtr: Option[Var]) derives Monoid
 
 opaque type LSRefContainer = Map[Var, LSRef]
 
+def singular(name: Name) =
+  name match
+    case Name("xs", _) => Name("x")
+    case Name("ys", _) => Name("y")
+    case Name("zs", _) => Name("z")
+    case Name("qs", _) => Name("q")
+    case Name("as", _) => Name("a")
+    case Name("bs", _) => Name("b")
+    case _ => ???
 
 extension (cont: LSRefContainer)
   private def names = List("xs", "ys", "zs", "qs", "as", "bs")
@@ -78,9 +88,39 @@ extension (assert: Assert)
             case None => assert
     .apply(assert)
 
+    
+  def rewriteSymbolicRefsNonApp(rewrites: LSRefContainer): Assert =
+    transform[Assert]:
+      case Exists(x, body) if rewrites.isBoundValueVar(x) => body
+      case Pred(pred, args) =>
+        val reprArgs = args.flatMap:
+          case arg@Var(_) if rewrites.contains(arg) => Some(reprOf(arg))
+          case arg@Var(_) if rewrites.isBoundNextVar(arg) => Some(tail_(reprOf(rewrites.reprForNext(arg))))
+          case _ => None
+
+        Pred(pred, args ::: reprArgs)
+
+      case cs@Case(_, _, _) => applyRewrites(cs, rewrites) match
+        case c@Case(Pure(ReprCheck(abs)), _, _) => c.copy(test = Pure(Eq(abs, Lit("Nil"))))
+        case other => other
+
+      case other => rewrites.foldLeft(other):
+        case (assert, (ptr, ls)) =>
+          ls.valuePtr match
+            case Some(ptrValue) => assert.subst(Map(ptrValue -> head_(reprOf(ptr))))
+            case None => assert
+    .apply(assert)
+
+  def toAbstractReprNonApp: (Assert, LSRefContainer) =
+    val symbols = assert.collectSymbolicReferences
+    assert.rewriteSymbolicRefsNonApp(symbols) -> symbols
+
 
 def reprOf(ptr: Expr): Var = Var(name = reprNameOf(ptr))
 def reprNameOf(ptr: Expr): Name = Name(name = s"_REPR_$ptr")
+
+def headReprOf(ptr: Expr): Name = Name(name = s"%HEAD_REPR_$ptr")
+def tailReprOf(ptr: Expr): Name = Name(name = s"%TAIL_REPR_$ptr")
 
 private object ReprVar:
   def unapply(v: Var): Option[Var] =

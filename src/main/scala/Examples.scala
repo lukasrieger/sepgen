@@ -8,6 +8,13 @@ object Examples:
   import pure.ProgramDsl.*
   
   import scala.language.implicitConversions
+  
+  val sequenceOfPrgs = program("sequence")("p", "q"):
+    call("listLength")($.p)($.a)
+    call("listLength")($.p)($.b)
+    call("appendList")($.p, $.q)
+    call("listLength")($.p)($.c)
+    returns($.p)
 
   val swapPtrs = program("swapPointers")("x", "y"):
     store($.y) in $.x
