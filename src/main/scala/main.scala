@@ -133,7 +133,7 @@ val tripleLs = Predicate(
 def testInductiveLs = InductivePred(
   name = Name("ls"),
   arity = 2,
-  constructors = Set(
+  constructors = Seq(
     Head(Seq(Var(Name("_")) -> Free(Name("p")), Var(Name("_")) ->  Nil)) -> PointsTo(Var(Name("p")), None, Lit("null")),
     Head(Seq(Var(Name("_")) -> Free(Name("p")), Var(Name("_")) -> Cons(Name("x"), Name("xs")))) -> Exists(
       Var(Name("n'")),

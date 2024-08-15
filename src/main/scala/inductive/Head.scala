@@ -2,29 +2,28 @@ package inductive
 
 import cats.{Foldable, Semigroup}
 import inductive.Pattern.{Cons, Free, Nil}
-import monocle.Monocle.{transform, universe}
+import monocle.Monocle.universe
 import pure.{And, Assert, AssertList, BinOp, Bind, Case, CoImp, Emp, Eq, Exists, ForAll, Imp, Lit, Name, Not, PointsTo, Pred, Predicate, Pure, SepAnd, SepImp, Septract, Var}
 import pure.*
-import cats.instances.all.catsKernelStdCommutativeMonoidForMap
 
 enum Pattern:
   case Nil
   case Cons(head: Name, tail: Name)
   case Null
   case Free(variable: Name)
-  
-  
+
+
   def rename(re: Map[Var, Var]) = this match
-    case Pattern.Nil => 
+    case Pattern.Nil =>
       Pattern.Nil
-    case Pattern.Cons(head, tail) => 
+    case Pattern.Cons(head, tail) =>
       Pattern.Cons(
-        re.getOrElse(Var(head), Var(head)).name, 
+        re.getOrElse(Var(head), Var(head)).name,
         re.getOrElse(Var(tail), Var(tail)).name
       )
-    case Pattern.Null => 
+    case Pattern.Null =>
       Pattern.Null
-    case Pattern.Free(variable) => 
+    case Pattern.Free(variable) =>
       Pattern.Free(re.getOrElse(Var(variable), Var(variable)).name)
 
   override def toString: String = this match
@@ -35,25 +34,25 @@ enum Pattern:
 
 
 case class Head(elements: Seq[(Var, Pattern)]):
-  
+
   def rename(re: Map[Var, Var]): Head =
     Head(
       elements.map((v, pat) => (v rename re) -> (pat rename re))
     )
-  
+
   override def toString: String = elements.map(_._2).mkString(" ")
 
 
 case class InductivePred(
                              name: Name,
                              arity: Int,
-                             constructors: Set[(Head, Assert)]
+                             constructors: Seq[(Head, Assert)]
                              ):
   assert(
     constructors.forall(_._1.elements.size == arity),
     s"All predicate constructors must have the same arity ($arity)"
   )
-  
+
   def renameHead(re: Map[Var, Var]) =
     InductivePred(
       name,
@@ -166,10 +165,10 @@ object InductivePred:
     val (trans, symbols) = predicate.toAbstractReprNonApp
     val abstracts = symbols.toAbstractParams
     val renameMap = symbols.foldLeft(Map.empty[Var, Var]):
-      case (acc, (ptr, _)) => 
+      case (acc, (ptr, _)) =>
         acc ++ Map(Var(name = tailReprOf(ptr)) -> Var(abstracts(ptr)))
             ++ Map(Var(name = headReprOf(ptr)) -> Var(singular(abstracts(ptr))))
-        
+
     val renamed = trans rename renameMap
 
     val paths = InductivePred
@@ -184,7 +183,7 @@ object InductivePred:
     InductivePred(
       name = name,
       arity = params.size + paths.head._1.elements.size,
-      constructors = withParams.toSet
+      constructors = withParams
     ) renameHead renameMap
 
   enum VarKind:

@@ -14,6 +14,16 @@ given lsRefMonoid: Monoid[LSRef] = Monoid.instance(
 
 opaque type LSRefContainer = Map[Var, LSRef]
 
+def singular(name: Name) =
+  name match
+    case Name("xs", _) => Name("x")
+    case Name("ys", _) => Name("y")
+    case Name("zs", _) => Name("z")
+    case Name("qs", _) => Name("q")
+    case Name("as", _) => Name("a")
+    case Name("bs", _) => Name("b")
+    case _ => ???
+
 
 extension (cont: LSRefContainer)
   private def names = List("xs", "ys", "zs", "qs", "as", "bs")
@@ -71,6 +81,39 @@ extension (assert: Assert)
             case None => assert
     .apply(assert)
 
+  def rewriteSymbolicRefsNonApp(rewrites: LSRefContainer): Assert =
+    transform[Assert]:
+      case Exists(x, body) if rewrites.isBoundValueVar(x) => body
+      case Pred(pred, args) =>
+        val reprArgs = args.flatMap:
+          case arg@Var(_) if rewrites.contains(arg) => Some(reprOf(arg))
+          case arg@Var(_) if rewrites.isBoundNextVar(arg) => Some(tail_(reprOf(rewrites.reprForNext(arg))))
+          case _ => None
+
+        Pred(pred, args ::: reprArgs)
+
+      case cs@Case(_, _, _) =>
+        rewrites.foldLeft(cs):
+          case (c, (ptr, _)) => c.copy(c.test subst Map(ptr -> reprOf(ptr)))
+        match
+          case c@Case(Pure(ReprCheck(abs)), _, _) => c.copy(test = Pure(Eq(abs, Lit.Nil)))
+          case other => other
+
+      case other => rewrites.foldLeft(other):
+        case (assert, (ptr, ls)) =>
+          ls.valuePtr match
+            case Some(ptrValue) => assert.subst(Map(ptrValue -> head_(reprOf(ptr))))
+            case None => assert
+    .apply(assert)
+
+  def toAbstractReprNonApp: (Assert, LSRefContainer) =
+    val symbols = assert.collectSymbolicReferences
+    assert.rewriteSymbolicRefsNonApp(symbols) -> symbols
+
+
+
+def headReprOf(ptr: Expr): Name = Name(name = s"%HEAD_REPR_$ptr")
+def tailReprOf(ptr: Expr): Name = Name(name = s"%TAIL_REPR_$ptr")
 
 def reprOf(ptr: Expr): Var = Var(name = reprNameOf(ptr))
 def reprNameOf(ptr: Expr): Name = Name(name = s"_REPR_$ptr")
