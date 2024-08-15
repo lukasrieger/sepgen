@@ -1,7 +1,5 @@
 package pure
 
-import scala.util.chaining._
-
 
 case class Predicate(
                       name: Name,

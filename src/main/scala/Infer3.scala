@@ -45,7 +45,7 @@ def infer3(prg: Program, pre: Assert): Assert =
 def inferU(prg: Program, pre: Heap): Assert =
   println(prg)
   prg match
-    case Program.Assign(x, expr) => Emp
+    case Program.Assign(x, expr) => Emp // todo
     case Program.Load(x, pointer, field) => Emp
     case Program.Store(pointer, arg, field) => Emp
     case Program.Alloc(pointer) => Emp
