@@ -73,7 +73,7 @@ val doubleLs = Predicate(
 val tripleLs = Predicate(
   name = Name("lsT"),
   params = List(Name("p"), Name("q"), Name("w")),
-  abstractReprs = Some(List(Name("xs"), Name("ys"))),
+  abstractReprs = Some(List(Name("xs"), Name("ys"), Name("ws"))),
   body =
     SepAnd(
       SepAnd(
@@ -149,11 +149,11 @@ def testInductiveLs = InductivePred(
 @main
 def main(): Unit =
   info("---HANDWRITTEN---")
-  trace(testInductiveLs)
+  info(testInductiveLs)
   info("---DERIVED FROM---")
-  trace(tripleLs)
+  info(tripleLs)
   info("---RESULTING INDUCTIVE PREDICATE---")
-  trace(InductivePred.fromPred(Name("ls"), tripleLs.body))
+  info(InductivePred.fromPred(Name("ls"), tripleLs.body))
 //  println(ls)
 //  val qOld = infer3(Examples.listLength, ls)
 //  val qNext = inferNext(Examples.listLength, ls)()

@@ -3,8 +3,10 @@ package inductive
 import cats.implicits.{catsKernelStdMonoidForOption, catsSyntaxSemigroup}
 import cats.{Foldable, Semigroup}
 import inductive.Pattern.Free
-import monocle.Monocle.universe
+import monocle.Monocle.{transform, universe}
 import pure.*
+
+import scala.collection.mutable.ListBuffer
 
 case class InductivePred(
                           name: Name,
@@ -45,7 +47,7 @@ object InductivePred:
 
     val patternParams = params.map(n => n -> Pattern.Free(n))
     val withParams = paths.map((head, assert) =>
-      Head(patternParams ++ head.elements) -> assert
+      Head(patternParams ++ head.elements) -> liftExistential(assert)
     )
 
     InductivePred(
@@ -55,12 +57,28 @@ object InductivePred:
     ) renameHead renameMap
 
 
-  def freeVars(assert: Assert): List[Var] =
+  private def freeVars(assert: Assert): List[Var] =
     Foldable[LazyList].foldMap(universe(assert)):
       case PointsTo(pointer: Var, _, _) => Map(pointer -> VarKind.Free)
-      case Exists(x, _) => Map(x -> VarKind.Bound)
+      case Exists(x, _) => x.map (_ -> VarKind.Bound).toMap
       case _ => Map.empty
     .filter(_._2 == VarKind.Free).keys.toList
+
+
+  private def liftExistential(assert: Assert): Assert =
+    val ex: ListBuffer[Var] = ListBuffer.empty
+    val lifted = transform[Assert]:
+      case Exists(x, body) =>
+        ex ++= x
+        body
+      case other => other
+    .apply(assert)
+
+    if (ex.nonEmpty) Exists(ex.toSeq, lifted) else assert
+
+
+
+
 
 
 enum VarKind:

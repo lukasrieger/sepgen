@@ -32,9 +32,9 @@ extension (cont: LSRefContainer)
     val localIter = names.iterator
     cont.keys.toList.reverse.map(e => e -> Name(localIter.next())).toMap
 
-  def isBoundValueVar(x: Var): Boolean =
-    cont.values.exists(ls => ls.valuePtr.contains(x))
-
+  def isBoundValueVar(x: Seq[Var]): Boolean =
+    cont.values.flatMap(_.valuePtr).exists(x.contains)
+  
   def isBoundNextVar(x: Var): Boolean =
     cont.values.exists(ls => ls.nextPtr.contains(x))
 

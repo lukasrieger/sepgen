@@ -20,7 +20,7 @@ case object Emp extends Assert:
   override def subst(su: Map[Var, Expr]) = this
 
 case class SepAnd(left: Assert, right: Assert) extends Assert:
-  override def toString: String = s"$left ** $right"
+  override def toString: String = s"$left ✶ $right"
 
   override def rename(re: Map[Var, Var]) =
     SepAnd(left rename re, right rename re)
@@ -73,16 +73,23 @@ case class Imp(left: Assert, right: Assert) extends Assert:
   override def subst(su: Map[Var, Expr]) = ???
 
 
-case class Exists(x: Var, body: Assert) extends Assert, Expr.BindT[Exists]:
-  override def bound: Set[Var] = Set(x)
+case class Exists(x: Seq[Var], body: Assert) extends Assert, Expr.BindT[Exists]:
+
+  def this(x: Var, body: Assert) = this (Seq(x), body)
+
+  override def bound: Set[Var] = x.toSet
 
   override def rename(a: Map[Var, Var], re: Map[Var, Var]) =
-    Exists(x rename a, body rename re)
+    Exists(x map (_ rename a), body rename re)
 
   override def subst(a: Map[Var, Var], su: Map[Var, Expr]) =
-    Exists(x rename a, body subst su)
+    Exists(x map (_ rename a), body subst su)
 
-  override def toString: String = s"∃$x . ($body)"
+  override def toString: String =
+    s"∃${x.mkString(", ")} . ($body)"
+
+object Exists:
+  def apply(x: Var, body: Assert) = new Exists(Seq(x), body)
 
 case class ForAll(x: Var, body: Assert) extends Assert, Expr.BindT[ForAll]:
   override def bound: Set[Var] = Set(x)
