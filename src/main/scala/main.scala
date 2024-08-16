@@ -79,7 +79,7 @@ val tripleLs = Predicate(
       SepAnd(
         Case(
           test = Pure(Eq(Var(Name("p")), Lit(0))),
-          ifTrue = PointsTo(Var(Name("p")), None, Lit("null")),
+          ifTrue = Pure(Eq(Var(Name("p")), Lit("null"))),
           ifFalse = Exists(
             Var(Name("n'")),
             Exists(Var(Name("v'")),
@@ -95,7 +95,7 @@ val tripleLs = Predicate(
         ),
         Case(
           test = Pure(Eq(Var(Name("q")), Lit(0))),
-          ifTrue = PointsTo(Var(Name("q")), None, Lit("null")),
+          ifTrue = Pure(Eq(Var(Name("q")), Lit("null"))),
           ifFalse = Exists(
             Var(Name("n2'")),
             Exists(Var(Name("v2'")),
@@ -112,7 +112,7 @@ val tripleLs = Predicate(
       ),
   Case(
     test = Pure(Eq(Var(Name("w")), Lit(0))),
-    ifTrue = PointsTo(Var(Name("w")), None, Lit("null")),
+    ifTrue = Pure(Eq(Var(Name("w")), Lit("null"))),
     ifFalse = Exists(
       Var(Name("n3'")),
       Exists(Var(Name("v3'")),
