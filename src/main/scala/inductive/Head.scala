@@ -62,7 +62,6 @@ case class Head(
 
 
 object Head:
-
   given headMonoid: Monoid[Head] = new Monoid[Head]:
     override def empty: Head = Head(Seq.empty, None)
     override def combine(x: Head, y: Head): Head = Head(

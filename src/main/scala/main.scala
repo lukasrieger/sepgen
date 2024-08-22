@@ -190,13 +190,13 @@ def main(): Unit =
 //  info(qOld)
 //  info(qNext)
 //
-//  val qNext2 = inferNext(
-//    Examples.sequenceOfPrgs,
-//    ls
-//  )(context = Set(Examples.listLength, Examples.appendList))
-//
-//  info("----------------------------")
-//  info(qNext2)
+  val qNext2 = inferNext(
+    Examples.sequenceOfPrgs,
+    ls
+  )(context = Set(Examples.listLength, Examples.appendList))
+
+  info("----------------------------")
+  info(qNext2)
 
 //  Examples.all.foreach: proc =>
 //    infer(proc)
