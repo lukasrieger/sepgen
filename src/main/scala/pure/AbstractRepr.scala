@@ -1,7 +1,10 @@
 package pure
 
 import cats.{Foldable, Monoid}
+import inductive.Head
 import monocle.Monocle.{transform, universe}
+
+import scala.collection.immutable
 
 
 case class LSRef(nextPtr: Option[Var], valuePtr: Option[Var])
@@ -124,6 +127,8 @@ private object ReprVar:
 
 private object ReprCheck:
   def unapply(repr: Expr): Option[Var] = repr match
-    case Eq(ReprVar(left), Lit(0)) => Some(left)
-    case Eq(Lit(0), ReprVar(right)) => Some(right)
+    case Eq(ReprVar(left), Lit.Null) => Some(left)
+    case Eq(Lit.Null, ReprVar(right)) => Some(right)
     case _ => None
+
+

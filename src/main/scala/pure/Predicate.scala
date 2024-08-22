@@ -71,7 +71,7 @@ private def buildReturns(returnCount: Int): List[Name] =
 
 
 extension (body: Assert)
-  private def renamePred(original: String, name: String): Assert = body match
+  def renamePred(original: String, name: String): Assert = body match
       case SepAnd(left, right) => SepAnd(left.renamePred(original, name), right.renamePred(original, name))
       case SepImp(left, right) => SepImp(left.renamePred(original, name), right.renamePred(original, name))
       case CoImp(left, right) => CoImp(left.renamePred(original, name), right.renamePred(original, name))

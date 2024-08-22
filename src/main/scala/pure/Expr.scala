@@ -106,6 +106,8 @@ case class Lit(any: Any) extends Expr:
   
 object Lit:
   val Nil = Lit("Nil")
+  val Null = Lit("null")
+  val Zero = Lit(0)
 
 case class Bind(
                  quantifier: Quantifier,

@@ -20,6 +20,7 @@ case object Emp extends Assert:
   override def subst(su: Map[Var, Expr]) = this
 
 case class SepAnd(left: Assert, right: Assert) extends Assert:
+
   override def toString: String = s"$left ✶ $right"
 
   override def rename(re: Map[Var, Var]) =
@@ -27,6 +28,9 @@ case class SepAnd(left: Assert, right: Assert) extends Assert:
 
   override def subst(su: Map[Var, Expr]) =
     SepAnd(left subst su, right subst su)
+
+object ** :
+  def unapply(sep: SepAnd): Option[(Assert, Assert)] = Some(sep.left -> sep.right)
 
 case class SepImp(left: Assert, right: Assert) extends Assert:
   override def toString: String = s"($left --* $right)"
@@ -40,9 +44,9 @@ case class SepImp(left: Assert, right: Assert) extends Assert:
 case class CoImp(left: Assert, right: Assert) extends Assert:
   override def toString: String = s"($left ~~> $right)"
 
-  override def rename(re: Map[Var, Var]) = ???
+  override def rename(re: Map[Var, Var]) = CoImp(left rename re, right rename re)
 
-  override def subst(su: Map[Var, Expr]) = ???
+  override def subst(su: Map[Var, Expr]) = CoImp(left subst su, right subst su)
 
 case class Septract(left: Assert, right: Assert) extends Assert:
   override def toString: String = s"($left ~~@ $right)"
@@ -54,6 +58,7 @@ case class Septract(left: Assert, right: Assert) extends Assert:
     Septract(left subst su, right subst su)
 
 case class PointsTo(pointer: Expr, field: Option[String] = None, arg: Expr) extends Assert:
+
   override def toString: String = field match
     case Some(value) => s"$pointer.$value |-> $arg"
     case None => s"$pointer |-> $arg"
@@ -65,12 +70,24 @@ case class PointsTo(pointer: Expr, field: Option[String] = None, arg: Expr) exte
   override def subst(su: Map[Var, Expr]) =
     PointsTo(pointer subst su, field, arg subst su)
 
+case class Struct(pointer: Expr, fields: List[(String, Expr)]) extends Assert:
+  override def toString: String =
+    val fieldsS = fields.map(_._2).mkString("⟨", ", ", "⟩")
+
+    s"$pointer |-> $fieldsS"
+
+  override def rename(re: Map[Var, Var]): Assert =
+    Struct(pointer rename re, fields map ((f, exp) => (f, exp rename re)))
+
+  override def subst(su: Map[Var, Expr]): Assert =
+    Struct(pointer subst su, fields map ((f, exp) => (f, exp subst su)))
+
 case class Imp(left: Assert, right: Assert) extends Assert:
   override def toString: String = s"($left ==> $right)"
 
-  override def rename(re: Map[Var, Var]) = ???
+  override def rename(re: Map[Var, Var]) = Imp(left rename re, right rename re)
 
-  override def subst(su: Map[Var, Expr]) = ???
+  override def subst(su: Map[Var, Expr]) = Imp(left subst su, right subst su)
 
 
 case class Exists(x: Seq[Var], body: Assert) extends Assert, Expr.BindT[Exists]:

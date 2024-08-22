@@ -1,3 +1,4 @@
+import pure.Lit.Null
 
 object Examples:
 
@@ -8,6 +9,22 @@ object Examples:
   import pure.ProgramDsl.*
   
   import scala.language.implicitConversions
+  
+  
+  val sumUntilGasLimit = program("sumUntilGasLimit")("p", "g"):
+    when($.p =:= Null):
+      returns (0)
+    .otherwise:
+      when($.g =:= 0):
+        returns (0)
+      .otherwise:
+        $.v <-- $.p.value
+        $.n <-- $.p.next
+        $.gas := $.g - 1
+        call_rec($.n, $.gas)($.y)
+        returns ($.y + $.v)
+      
+      
   
   val sequenceOfPrgs = program("sequence")("p", "q"):
     call("listLength")($.p)($.a)

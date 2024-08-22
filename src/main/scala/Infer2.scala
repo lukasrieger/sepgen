@@ -91,7 +91,7 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
       )
     case Program.While(test, inv, body) :: rest => ???
     case Program.Call(name, args, rt) :: rest =>
-      val heap_ = heap :+ Pred(Name("post"), args ::: rt)
+      val heap_ = heap :+ Exists(rt, Pred(Name("post"), args ::: rt))
       infer(rest)(heap_) bimap(
         pre = Pred(Name("pre"), args) ** _,
         post = identity
@@ -101,7 +101,7 @@ private def infer(program: List[Program])(heap: Heap): (Pre, Post) =
 
       infer(rest)(heap) bimap(
         pre = identity,
-        post = (resPred reduce (_ ** _)) ** _
+        post = _ ** (resPred reduce (_ ** _))
       )
     case Nil =>
       if heap.isEmpty then Emp -> Emp else Emp -> heap.reduceRight(_ ** _)

@@ -1,11 +1,11 @@
 import inductive.Pattern.{Cons, Free, Nil}
 import inductive.{Head, InductivePred}
-import util.{info, initLogger}
+import util.{info, initLogger, globalLogger}
 import wvlet.log.Logger
 import pure.{Case, Eq, Exists, Lit, Name, PointsTo, Pred, Predicate, Pure, SepAnd, Var, collectSymbolicReferences, tapPost, tapPre}
 import wvlet.log.Logger.rootLogger.{debug, trace}
 
-given globalLogger: Logger = initLogger()
+
 
 val ls = Predicate(
   name = Name("ls"),
@@ -70,6 +70,8 @@ val doubleLs = Predicate(
   )
 )
 
+
+
 val tripleLs = Predicate(
   name = Name("lsT"),
   params = List(Name("p"), Name("q"), Name("w")),
@@ -78,7 +80,7 @@ val tripleLs = Predicate(
     SepAnd(
       SepAnd(
         Case(
-          test = Pure(Eq(Var(Name("p")), Lit(0))),
+          test = Pure(Eq(Var(Name("p")), Lit.Null)),
           ifTrue = Pure(Eq(Var(Name("p")), Lit("null"))),
           ifFalse = Exists(
             Var(Name("n'")),
@@ -94,7 +96,7 @@ val tripleLs = Predicate(
           )
         ),
         Case(
-          test = Pure(Eq(Var(Name("q")), Lit(0))),
+          test = Pure(Eq(Var(Name("q")), Lit.Null)),
           ifTrue = Pure(Eq(Var(Name("q")), Lit("null"))),
           ifFalse = Exists(
             Var(Name("n2'")),
@@ -111,7 +113,7 @@ val tripleLs = Predicate(
         )
       ),
   Case(
-    test = Pure(Eq(Var(Name("w")), Lit(0))),
+    test = Pure(Eq(Var(Name("w")), Lit.Null)),
     ifTrue = Pure(Eq(Var(Name("w")), Lit("null"))),
     ifFalse = Exists(
       Var(Name("n3'")),
@@ -154,6 +156,22 @@ def main(): Unit =
   info(tripleLs)
   info("---RESULTING INDUCTIVE PREDICATE---")
   info(InductivePred.fromPred(Name("ls"), tripleLs.body))
+
+
+  val (_, post) = infer(Examples.sumUntilGasLimit)
+
+  val inductivePostG = InductivePred.fromPred(
+    Name("sumGas"),
+    post
+  )
+
+  info("RAW GAS PRED: ")
+  info(post)
+
+  info("--- INDUCTIVE INFERRED FROM PROGRAM ---")
+  info(inductivePostG)
+
+
 //  println(ls)
 //  val qOld = infer3(Examples.listLength, ls)
 //  val qNext = inferNext(Examples.listLength, ls)()

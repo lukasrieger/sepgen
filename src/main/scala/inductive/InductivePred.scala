@@ -5,7 +5,11 @@ import cats.{Foldable, Semigroup}
 import inductive.Pattern.Free
 import monocle.Monocle.{transform, universe}
 import pure.*
+import pure.renamePred
+import util.info
+import util.globalLogger
 
+import scala.collection.immutable
 import scala.collection.mutable.ListBuffer
 
 case class InductivePred(
@@ -13,10 +17,10 @@ case class InductivePred(
                           arity: Int,
                           constructors: Seq[(Head, Assert)]
                         ):
-  assert(
-    constructors.forall(_._1.elements.size == arity),
-    s"All predicate constructors must have the same arity ($arity)"
-  )
+//  assert(
+//    constructors.forall(_._1.elements.size == arity),
+//    s"All predicate constructors must have the same arity ($arity)"
+//  )
 
   def renameHead(re: Map[Var, Var]) =
     InductivePred(
@@ -33,6 +37,10 @@ case class InductivePred(
     s"inductive $name/$arity where \n$constructorsPretty"
 
 object InductivePred:
+
+  def fromPred(name: Name, predicate: Predicate): InductivePred =
+    fromPred(name, predicate.body.renamePred(predicate.name.name, name.name))
+
   def fromPred(name: Name, predicate: Assert): InductivePred =
     val params = freeVars(predicate)
     val (trans, symbols) = predicate.toAbstractReprNonApp
@@ -45,9 +53,9 @@ object InductivePred:
     val renamed = trans rename renameMap
     val paths = renamed.paths.flatMap((head, assert) => head.map(_ -> assert))
 
-    val patternParams = params.map(n => n -> Pattern.Free(n))
-    val withParams = paths.map((head, assert) =>
-      Head(patternParams ++ head.elements) -> liftExistential(assert)
+    val patternParams: List[(Var, Pattern.Free)] = params.map(n => n -> Pattern.Free(n))
+    val withParams = freeToSucc(paths).map((head, assert) =>
+      (head unify patternParams.map(_._2)) -> (packToStructs compose liftExistential) (assert)
     )
 
     InductivePred(
@@ -58,12 +66,22 @@ object InductivePred:
 
 
   private def freeVars(assert: Assert): List[Var] =
-    Foldable[LazyList].foldMap(universe(assert)):
+    val free: List[Var] = Foldable[LazyList].foldMap(universe(assert)):
+//      case Pred(_, args) => args.collect:
+//        case v: Var => v -> VarKind.Free
+//      .toMap
+      case Pure(Eq(v@Var(Name("result", _)), _)) => Map(Var(Name("result")) -> VarKind.Free)
+      case Case(Pure(Eq(v: Var, _)), _, _) => Map(v -> VarKind.Free)
       case PointsTo(pointer: Var, _, _) => Map(pointer -> VarKind.Free)
       case Exists(x, _) => x.map (_ -> VarKind.Bound).toMap
       case _ => Map.empty
     .filter(_._2 == VarKind.Free).keys.toList
 
+    // TODO: This is super ugly and doesnt work for predicates with more than one result. FIX THIS.
+    if free.contains(Var(Name("result", None))) then
+      free.filterNot(_.name == Name("result", None)) :+ Var(Name("result", None))
+    else
+      free
 
   private def liftExistential(assert: Assert): Assert =
     val ex: ListBuffer[Var] = ListBuffer.empty
@@ -77,7 +95,33 @@ object InductivePred:
     if (ex.nonEmpty) Exists(ex.toSeq, lifted) else assert
 
 
+  private def packToStructs(assert: Assert): Assert =
+    transform[Assert]:
+      case PointsTo(p1, Some(fieldA), expA) ** PointsTo(p2, Some(fieldB), expB) if p1 == p2 =>
+        Struct(p1, List(fieldA -> expA, fieldB -> expB))
+      case a ** PointsTo(p1, Some(fieldA), expA) ** PointsTo(p2, Some(fieldB), expB) if p1 == p2 =>
+        SepAnd(Struct(p1, List(fieldA -> expA, fieldB -> expB)), a)
+      case PointsTo(p1, Some(fieldA), expA) ** (PointsTo(p2, Some(fieldB), expB) ** a) if p1 == p2 =>
+        SepAnd(Struct(p1, List(fieldA -> expA, fieldB -> expB)), a)
+      case other => other
+    .apply(assert)
 
+  private def freeToSucc(heads: Seq[(Head, Assert)]): Seq[(Head, Assert)] =
+    val zeros =
+      for
+        (head, _) <- heads
+        (v, pattern) <- head.elements
+        if pattern == Pattern.Zero
+      yield v
+
+    heads.map: (head, assert) =>
+      val updated = head.elements.map: (v, pattern) =>
+        if zeros.contains(v) && pattern.isInstanceOf[Pattern.Free] then
+          (v, Pattern.Succ(v))
+        else
+          (v, pattern)
+
+      Head(updated) -> assert
 
 
 
@@ -119,6 +163,8 @@ extension (assert: Assert)
       yield (h1 |+| h2) -> Septract(l1, l2)
     case PointsTo(pointer, field, arg) =>
       Seq(None -> PointsTo(pointer, field, arg))
+    case Struct(pointer, fields) =>
+      Seq(None -> Struct(pointer, fields))
     case Imp(left, right) =>
       for
         (h1, l1) <- left.paths
@@ -157,9 +203,11 @@ extension (test: Pure)
           case (v, Pattern.Cons(_, _)) => Some(v -> Pattern.Nil)
           case (v, Pattern.Null) => Some(v -> Free(v))
           case (v, Pattern.Free(_)) => Some(v -> Pattern.Null)
+          case (v, Pattern.Zero) => Some(v -> Pattern.Free(v))
+          case (v, Pattern.Succ(_)) => Some(v -> Pattern.Zero)
         case None => None
-
     case Eq(Var(name), Lit.Nil) => Some(Var(name) -> Pattern.Nil)
+    case Eq(Var(name), Lit.Zero) => Some(Var(name) -> Pattern.Zero)
     case Eq(_, _) => None
     case pure.App(_, _) => None
     case Var(_) => None
@@ -171,3 +219,18 @@ extension (test: Pure)
     test.toPattern match
       case Some(value) => Some(Head(Seq(value)))
       case None => None
+
+extension (head: Head)
+
+  infix def unify (params: List[Pattern.Free]): Head = params match
+    case v :: tail =>
+      head.elements.find(_._1 == v.variable) match
+        case Some((_, Pattern.Zero)) =>
+          val xxx = Head(head.elements.filterNot(_._1 == v.variable).toList) unify tail
+          Head(Seq(v.variable -> Pattern.Zero) ++ xxx.elements)
+        case Some(_, Pattern.Succ(n)) =>
+          val xxx = Head(head.elements.filterNot(_._1 == v.variable).toList) unify tail
+          Head(Seq(v.variable -> Pattern.Succ(n)) ++ xxx.elements)
+        case Some(_,_) => Head(Seq(v.variable -> v) ++ (head unify tail).elements)
+        case None => Head(Seq(v.variable -> v) ++ (head unify tail).elements)
+    case immutable.Nil => head
