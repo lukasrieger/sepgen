@@ -50,8 +50,9 @@ object InductivePred:
         acc ++ Map(Var(name = tailReprOf(ptr)) -> Var(abstracts(ptr)))
           ++ Map(Var(name = headReprOf(ptr)) -> Var(singular(abstracts(ptr))))
 
+
     val renamed = trans rename renameMap
-    val paths = renamed.paths.flatMap((head, assert) => head.map(_ -> assert))
+    val paths = renamed.paths(using params ++ renameMap.keys).flatMap((head, assert) => head.map(_ -> assert))
 
     val patternParams: List[(Var, Pattern.Free)] = params.map(n => n -> Pattern.Free(n))
     val withParams = freeToSucc(paths).map((head, assert) =>
@@ -70,8 +71,9 @@ object InductivePred:
 //      case Pred(_, args) => args.collect:
 //        case v: Var => v -> VarKind.Free
 //      .toMap
-      case Pure(Eq(v@Var(Name("result", _)), _)) => Map(Var(Name("result")) -> VarKind.Free)
-      case Case(Pure(Eq(v: Var, _)), _, _) => Map(v -> VarKind.Free)
+      case Pure(Eq(Var(Name("result", _)), _)) => Map(Var(Name("result")) -> VarKind.Free)
+      case Case(Pure(Eq(v1: Var, v2: Var)), _, _) => Map(v1 -> VarKind.Free, v2 -> VarKind.Free)
+      case Case(Pure(Eq(v1: Var, _)), _, _) => Map(v1 -> VarKind.Free)
       case PointsTo(pointer: Var, _, _) => Map(pointer -> VarKind.Free)
       case Exists(x, _) => x.map (_ -> VarKind.Bound).toMap
       case _ => Map.empty
@@ -121,7 +123,7 @@ object InductivePred:
         else
           (v, pattern)
 
-      Head(updated) -> assert
+      Head(updated, head.guard) -> assert
 
 
 
@@ -138,7 +140,7 @@ object VarKind:
 
 
 extension (assert: Assert)
-  private def paths: Seq[(Option[Head], Assert)] = assert match
+  private def paths(using params: List[Var]): Seq[(Option[Head], Assert)] = assert match
     case Emp =>
       Seq(None -> Emp)
     case SepAnd(left, right) =>
@@ -187,12 +189,30 @@ extension (assert: Assert)
         (h1, l1) <- left.paths
         (h2, l2) <- right.paths
       yield (h1 |+| h2) -> And(l1, l2)
-    case Case(test, ifTrue, ifFalse) =>
+    case Case(test, ifTrue, ifFalse) if test dependsPurelyOn params =>
       (for (h1, p1) <- ifTrue.paths yield (test.toHead |+| h1) -> p1) ++
         (for (h2, p2) <- ifFalse.paths yield (Pure(Not(test.expr)).toHead |+| h2) -> p2)
+    case Case(test, ifTrue, ifFalse) =>
+      (for (h1, p1) <- ifTrue.paths yield (test.toHead |+| h1 |+| test.toGuard) -> p1) ++
+        (for (h2, p2) <- ifFalse.paths yield (Pure(Not(test.expr)).toHead |+| h2 |+| Pure(Not(test.expr)).toGuard) -> p2)
+
     case AssertList(_) => sys.error("Unsupported.")
 
 extension (test: Pure)
+
+  private def toGuard(using params: List[Var]): Option[Head] =
+    if test dependsPurelyOn params then
+      None
+    else
+      Some(Head(Seq.empty, Some(Seq(test.expr))))
+
+  private infix def dependsPurelyOn(params: List[Var]): Boolean = test.expr match
+    case Eq(v, _: Lit) if params.contains(v) => true
+    case Eq(ReprVar(_), _: Lit) => true
+    case Eq(v1, v2) if params.contains(v1) && params.contains(v2) => true
+    case Eq(ReprVar(_), ReprVar(_))  => true
+    case _ => false
+
   private def toPattern: Option[(Var, Pattern)] = test.expr match
     case BinOp(_, _, _) => None
     case Not(neg) =>
@@ -217,7 +237,7 @@ extension (test: Pure)
 
   private def toHead: Option[Head] =
     test.toPattern match
-      case Some(value) => Some(Head(Seq(value)))
+      case Some(value) => Some(Head(Seq(value), None))
       case None => None
 
 extension (head: Head)
@@ -226,11 +246,11 @@ extension (head: Head)
     case v :: tail =>
       head.elements.find(_._1 == v.variable) match
         case Some((_, Pattern.Zero)) =>
-          val xxx = Head(head.elements.filterNot(_._1 == v.variable).toList) unify tail
-          Head(Seq(v.variable -> Pattern.Zero) ++ xxx.elements)
+          val xxx = Head(head.elements.filterNot(_._1 == v.variable).toList, head.guard) unify tail
+          Head(Seq(v.variable -> Pattern.Zero) ++ xxx.elements, xxx.guard)
         case Some(_, Pattern.Succ(n)) =>
-          val xxx = Head(head.elements.filterNot(_._1 == v.variable).toList) unify tail
-          Head(Seq(v.variable -> Pattern.Succ(n)) ++ xxx.elements)
-        case Some(_,_) => Head(Seq(v.variable -> v) ++ (head unify tail).elements)
-        case None => Head(Seq(v.variable -> v) ++ (head unify tail).elements)
+          val xxx = Head(head.elements.filterNot(_._1 == v.variable).toList, head.guard) unify tail
+          Head(Seq(v.variable -> Pattern.Succ(n)) ++ xxx.elements, xxx.guard)
+        case Some(_,_) => Head(Seq(v.variable -> v) ++ (head unify tail).elements, head.guard)
+        case None => Head(Seq(v.variable -> v) ++ (head unify tail).elements, head.guard)
     case immutable.Nil => head

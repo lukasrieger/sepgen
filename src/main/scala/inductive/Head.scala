@@ -1,6 +1,7 @@
 package inductive
 
 import cats.Monoid
+import cats.implicits.catsSyntaxSemigroup
 import inductive.Pattern.{Cons, Free, Nil}
 import pure.*
 
@@ -41,14 +42,30 @@ enum Pattern:
     case Pattern.Succ(n) => s"$n"
 
 
-case class Head(elements: Seq[(Var, Pattern)]):
+case class Head(
+                 elements: Seq[(Var, Pattern)],
+                 guard: Option[Seq[Expr]]
+               ):
   def rename(re: Map[Var, Var]): Head =
-    Head(elements.map((v, pat) => (v rename re) -> (pat rename re)))
+    Head(
+      elements.map((v, pat) => (v rename re) -> (pat rename re)),
+      guard.map(_ map(_ rename re))
+    )
 
-  override def toString: String = elements.map(_._2).mkString(" ")
+  override def toString: String =
+    val params = elements.map(_._2).mkString(" ")
+    val guard_ = guard.map(_.mkString("&"))
+
+    guard_ match
+      case Some(g) => s"$params when $g"
+      case None => params
+
 
 object Head:
 
   given headMonoid: Monoid[Head] = new Monoid[Head]:
-    override def empty: Head = Head(Seq.empty)
-    override def combine(x: Head, y: Head): Head = Head(x.elements ++ y.elements)
+    override def empty: Head = Head(Seq.empty, None)
+    override def combine(x: Head, y: Head): Head = Head(
+      x.elements ++ y.elements,
+      x.guard combine y.guard
+    )

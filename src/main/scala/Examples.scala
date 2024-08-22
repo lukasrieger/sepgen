@@ -9,8 +9,8 @@ object Examples:
   import pure.ProgramDsl.*
   
   import scala.language.implicitConversions
-  
-  
+
+
   val sumUntilGasLimit = program("sumUntilGasLimit")("p", "g"):
     when($.p =:= Null):
       returns (0)
@@ -23,8 +23,8 @@ object Examples:
         $.gas := $.g - 1
         call_rec($.n, $.gas)($.y)
         returns ($.y + $.v)
-      
-      
+
+
   
   val sequenceOfPrgs = program("sequence")("p", "q"):
     call("listLength")($.p)($.a)
@@ -55,40 +55,39 @@ object Examples:
       returns($.y + 1)
 
   val incrementAll = program("increment")("list"):
-    when($.list =:= 0):
+    when($.list =:= Null):
       ()
     .otherwise:
       $.next <-- $.list.next
       $.curVal <-- $.list.value
-      $.newVal := $.curVal + 1
-      store($.newVal) in $.list.value
+      store($.curVal + 1) in $.list.value
       call_rec($.next)
 
 
-  val removeElement = program("remove")("list", "element"):
-    when($.list =:= 0):
+  val removeElement = program("remove")("list", "el"):
+    when($.list =:= Null):
       returns($.list)
     .otherwise:
       $.curVal <-- $.list.value
       $.next <-- $.list.next
-      when($.curVal =:= $.element):
+      when($.curVal =:= $.el):
         returns($.next)
       .otherwise:
-        call_rec($.next, $.element)($.newNext)
+        call_rec($.next, $.el)($.newNext)
         store ($.newNext) in $.list.next
         returns($.list)
 
-  val findElement = program("find")("list, element"):
-    when($.list =:= 0):
+  val findElement = program("find")("list, el"):
+    when($.list =:= Null):
       returns(false)
     .otherwise:
       $.value <-- $.list.value
-      when($.value =:= $.element):
+      $.next <-- $.list.next
+      when($.value =:= $.el):
         returns(true)
       .otherwise:
-        $.next <-- $.list.next
 //        $.found <--local
-        call_rec($.next, $.element)($.found)
+        call_rec($.next, $.el)($.found)
         returns ($.found)
 
   val listReverse = program("listReverse")("curr"):

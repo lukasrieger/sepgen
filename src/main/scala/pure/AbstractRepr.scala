@@ -121,7 +121,7 @@ def tailReprOf(ptr: Expr): Name = Name(name = s"%TAIL_REPR_$ptr")
 def reprOf(ptr: Expr): Var = Var(name = reprNameOf(ptr))
 def reprNameOf(ptr: Expr): Name = Name(name = s"_REPR_$ptr")
 
-private object ReprVar:
+object ReprVar:
   def unapply(v: Var): Option[Var] =
     if (v.name.name.startsWith("_REPR_")) Some(v) else None
 

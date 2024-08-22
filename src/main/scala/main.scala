@@ -132,26 +132,26 @@ val tripleLs = Predicate(
 )
 
 
-
-def testInductiveLs = InductivePred(
-  name = Name("ls"),
-  arity = 2,
-  constructors = Seq(
-    Head(Seq(Var(Name("_")) -> Free(Var(Name("p"))), Var(Name("_")) ->  Nil)) -> PointsTo(Var(Name("p")), None, Lit("null")),
-    Head(Seq(Var(Name("_")) -> Free(Var(Name("p"))), Var(Name("_")) -> Cons(Var(Name("x")), Var(Name("xs"))))) -> Exists(
-      Var(Name("n'")),
-      SepAnd(
-        PointsTo(Var(Name("p")), Some("next"), Var(Name("n'"))),
-        Pred(Name("ls"), List(Var(Name("n'")), Var(Name("xs"))))
-      )
-    )
-  )
-)
+//
+//def testInductiveLs = InductivePred(
+//  name = Name("ls"),
+//  arity = 2,
+//  constructors = Seq(
+//    Head(Seq(Var(Name("_")) -> Free(Var(Name("p"))), Var(Name("_")) ->  Nil)) -> PointsTo(Var(Name("p")), None, Lit("null")),
+//    Head(Seq(Var(Name("_")) -> Free(Var(Name("p"))), Var(Name("_")) -> Cons(Var(Name("x")), Var(Name("xs"))))) -> Exists(
+//      Var(Name("n'")),
+//      SepAnd(
+//        PointsTo(Var(Name("p")), Some("next"), Var(Name("n'"))),
+//        Pred(Name("ls"), List(Var(Name("n'")), Var(Name("xs"))))
+//      )
+//    )
+//  )
+//)
 
 @main
 def main(): Unit =
   info("---HANDWRITTEN---")
-  info(testInductiveLs)
+//  info(testInductiveLs)
   info("---DERIVED FROM---")
   info(tripleLs)
   info("---RESULTING INDUCTIVE PREDICATE---")
@@ -170,6 +170,16 @@ def main(): Unit =
 
   info("--- INDUCTIVE INFERRED FROM PROGRAM ---")
   info(inductivePostG)
+
+  val (pre2, post2) = infer(Examples.findElement)
+
+  val inductiveIncG = InductivePred.fromPred(
+    Name("removeI"),
+    post2
+  )
+  info(pre2)
+  info(post2)
+  info(inductiveIncG)
 
 
 //  println(ls)
