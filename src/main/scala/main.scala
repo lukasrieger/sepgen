@@ -1,8 +1,8 @@
 import inductive.Pattern.{Cons, Free, Nil}
 import inductive.{Head, InductivePred}
-import util.{info, initLogger, globalLogger}
+import util.{globalLogger, info, initLogger}
 import wvlet.log.Logger
-import pure.{Case, Eq, Exists, Lit, Name, PointsTo, Pred, Predicate, Pure, SepAnd, Var, collectSymbolicReferences, tapPost, tapPre}
+import pure.{Case, Emp, Eq, Exists, Lit, Name, PointsTo, Pred, Predicate, Pure, SepAnd, Var, collectSymbolicReferences, tapPost, tapPre}
 import wvlet.log.Logger.rootLogger.{debug, trace}
 
 
@@ -12,8 +12,8 @@ val ls = Predicate(
   params = List(Name("p")),
   abstractReprs = Some(List(Name("xs"))),
   body = Case(
-      test = Pure(Eq(Var(Name("p")), Lit(0))),
-      ifTrue = PointsTo(Var(Name("p")), None, Lit("null")),
+      test = Pure(Eq(Var(Name("p")), Lit.Null)),
+      ifTrue = Emp,
       ifFalse = Exists(
         Var(Name("n'")),
         Exists(Var(Name("v'")),
@@ -150,37 +150,37 @@ val tripleLs = Predicate(
 
 @main
 def main(): Unit =
-  info("---HANDWRITTEN---")
-//  info(testInductiveLs)
-  info("---DERIVED FROM---")
-  info(tripleLs)
-  info("---RESULTING INDUCTIVE PREDICATE---")
-  info(InductivePred.fromPred(Name("ls"), tripleLs.body))
-
-
-  val (_, post) = infer(Examples.sumUntilGasLimit)
-
-  val inductivePostG = InductivePred.fromPred(
-    Name("sumGas"),
-    post
-  )
-
-  info("RAW GAS PRED: ")
-  info(post)
-
-  info("--- INDUCTIVE INFERRED FROM PROGRAM ---")
-  info(inductivePostG)
-
-  val (pre2, post2) = infer(Examples.findElement)
-
-  val inductiveIncG = InductivePred.fromPred(
-    Name("removeI"),
-    post2
-  )
-  info(pre2)
-  info(post2)
-  info(inductiveIncG)
-
+//  info("---HANDWRITTEN---")
+////  info(testInductiveLs)
+//  info("---DERIVED FROM---")
+//  info(tripleLs)
+//  info("---RESULTING INDUCTIVE PREDICATE---")
+//  info(InductivePred.fromPred(Name("ls"), tripleLs.body))
+//
+//
+//  val (_, post) = infer(Examples.sumUntilGasLimit)
+//
+//  val inductivePostG = InductivePred.fromPred(
+//    Name("sumGas"),
+//    post
+//  )
+//
+//  info("RAW GAS PRED: ")
+//  info(post)
+//
+//  info("--- INDUCTIVE INFERRED FROM PROGRAM ---")
+//  info(inductivePostG)
+//
+//  val (pre2, post2) = infer(Examples.findElement)
+//
+//  val inductiveIncG = InductivePred.fromPred(
+//    Name("removeI"),
+//    post2
+//  )
+//  info(pre2)
+//  info(post2)
+//  info(inductiveIncG)
+//
 
 //  println(ls)
 //  val qOld = infer3(Examples.listLength, ls)
@@ -196,7 +196,7 @@ def main(): Unit =
   )(context = Set(Examples.listLength, Examples.appendList))
 
   info("----------------------------")
-  info(qNext2)
+  info(qNext2._1)
 
 //  Examples.all.foreach: proc =>
 //    infer(proc)

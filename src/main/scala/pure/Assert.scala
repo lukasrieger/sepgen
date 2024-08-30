@@ -133,7 +133,7 @@ case class Pure(expr: Expr) extends Assert:
 case class Pred(pred: Name, args: List[Expr]) extends Assert:
   override def toString: String =
     val prettyArgs = args.map(_.toString).mkString("(", ", ", ")")
-    s"${pred.name}$prettyArgs)"
+    s"${pred}$prettyArgs)"
 
   override def rename(re: Map[Var, Var]) =
     Pred(pred, args rename re)

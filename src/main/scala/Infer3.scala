@@ -106,6 +106,7 @@ extension (heap: Heap)
 
   infix def isNullPtr(pointer: Expr): Boolean =
     heap match
+      case Pure(Eq(`pointer`, Lit.Null)) :: _ => true
       case PointsTo(`pointer`, None, Lit("null")) :: _ =>
         true
       case PointsTo(`pointer`, None, _) :: _ =>
@@ -133,8 +134,8 @@ extension (heap: Heap)
 object NullCheck:
   def unapply(repr: Expr): Option[Expr] =
     repr match
-      case Eq(left, Lit(0)) => Some(left)
-      case Eq(Lit(0), right) => Some(right)
+      case Eq(left, Lit.Null) => Some(left)
+      case Eq(Lit.Null, right) => Some(right)
       case _ => None
 
 

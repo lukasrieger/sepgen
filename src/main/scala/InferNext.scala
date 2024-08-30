@@ -134,10 +134,12 @@ def inferNext(
         val (inferAss, inferCtx) = inferNext(path, heap, pr, hypName, procName, contextAcc)
         (accAssert ** inferAss) -> (contextAcc ++ inferCtx)
     case pure.Program.If(test, left, right) :: rest =>
+      println("AT CASE SPLIT!")
       val (caseEval, contextAssert2: ContextAssert) = if eval(
         condition = test,
         under = path ::: heap
       ) then
+        println("CASE EVALED TO TRUE!!!")
         inferNext(
           path = path ::: List(Pure(test)),
           heap = heap,
@@ -160,15 +162,18 @@ def inferNext(
     case pure.Program.While(test, inv, body) :: rest => ???
     case pure.Program.Call(name, args, rt) :: rest if name == procName =>
       println(name)
+
+      println(s"Analysing sub SELF: $name")
+      println(s"Under: $procName")
       assume(rt.size == 1 || rt.isEmpty)
 
-      val hypothesis = heap.hypothesis().get
+      val hypothesis = heap.hypothesis()
 
-      val q = Pred(Name("Q"), args ::: List(hypothesis) ::: rt.headOption.toList)
+      val q = Pred(Name("Q"), args ::: hypothesis.toList ::: rt.headOption.toList)
 
       inferNext(
         path,
-        if (rt.isEmpty) (heap dropHypothesis hypName) :+ q else (heap dropHypothesis hypName) :+ Exists(rt.head, q),
+        (heap dropHypothesis hypName) :+ q,
         rest,
         hypName,
         procName,
@@ -177,9 +182,20 @@ def inferNext(
       assume(rt.size == 1 || rt.isEmpty)
 
       val name_ = name.withIndex(scala.util.Random.between(1, 20))
+      
+      val renamed = context
+        .find(_.signature.name == name)
+        .getOrElse(sys.error(s"Missing proc in context: $name"))
+        .signature
+        .params
+        .zipWithIndex
+        .map((v, index) => v.name -> args(index).name)
+
+      println(s"Analysing sub: $name")
+      println(s"Under: $procName")
       val (pred, newContext) = inferNext(
         procName = name,
-        hypName = name_,
+        hypName = hypName,
         program = context.find(_.signature.name == name).getOrElse(sys.error(s"Missing proc in context: $name")).body,
         pre = (path ::: heap).toAssert,
         context
@@ -187,9 +203,12 @@ def inferNext(
 
       val q = Pred(name_, args ::: rt.headOption.toList)
 
+      println(s"EVALUATED OTHER ${name} : $pred")
+      println(s"UNDER : ${(path ::: heap)}")
+
       inferNext(
         path,
-        if (rt.isEmpty) heap :+ q else heap :+ Exists(rt.head, q),
+        heap :+ pred,
         rest,
         hypName,
         procName,

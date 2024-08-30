@@ -28,9 +28,7 @@ object Examples:
   
   val sequenceOfPrgs = program("sequence")("p", "q"):
     call("listLength")($.p)($.a)
-    call("listLength")($.p)($.b)
     call("appendList")($.p, $.q)
-    call("listLength")($.p)($.c)
     returns($.p)
 
   val swapPtrs = program("swapPointers")("x", "y"):
@@ -47,7 +45,7 @@ object Examples:
       returns($.y + $.x)
 
   val listLength = program("listLength")("p"):
-    when($.p =:= 0):
+    when($.p =:= Null):
       returns(0)
     .otherwise:
       $.n <-- $.p.next
@@ -115,12 +113,15 @@ object Examples:
     .otherwise:
       returns(0, $.head)
 
-  val appendList = program("appendList")("first","second"):
-    $.next <-- $.first.next
-    when($.next =:= 0):
-      store($.second) in $.first.next
+  val appendList = program("appendList")("p","q"):
+    when($.p =:= Lit.Null):
+      ()
     .otherwise:
-      call_rec($.next, $.second)
+      $.next <-- $.p.next
+      when($.next =:= Lit.Null):
+        store($.q) in $.first.next
+      .otherwise:
+        call_rec($.next, $.q)
 
   val testHead = program("headTest")("list1", "list2"):
     $.sNext <-- $.list1.next
