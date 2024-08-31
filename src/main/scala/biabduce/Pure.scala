@@ -38,17 +38,17 @@ object Pure extends HasListRepr[Pure]:
   type L = List[S]
 
   extension (pureL: L)
-    def rename(re: Map[Expression, Expression]): L =
+    infix def rename(re: Map[Expression, Expression]): L =
       pureL map (_ renameS re)
 
-    def subst(su: Map[Expression, Expression]): L =
+    infix def subst(su: Map[Expression, Expression]): L =
       pureL map (_ substS su)
 
   extension (pureS: S)
-    def renameS(re: Map[Expression, Expression]): S =
+    infix def renameS(re: Map[Expression, Expression]): S =
       pureS.rename(re).asInstanceOf[S]
 
-    def substS(su: Map[Expression, Expression]): S =
+    infix def substS(su: Map[Expression, Expression]): S =
       pureS.subst(su).asInstanceOf[S]
 
   given Traversal[Pure, Pure] with

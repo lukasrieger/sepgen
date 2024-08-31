@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ScalaCompilerConfiguration">
     <profile name="sbt 1" modules="sepgen">
-      <option name="featureWarnings" value="true" />
+      <parameters>
+        <parameter value="-experimental" />
+      </parameters>
     </profile>
   </component>
 </project>

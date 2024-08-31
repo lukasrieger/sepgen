@@ -7,9 +7,9 @@ package alpha:
 
     def free: Set[V]
 
-    def rename(re: Map[V, V]): E
+    infix def rename(re: Map[V, V]): E
 
-    def subst(su: Map[V, E]): E
+    infix def subst(su: Map[V, E]): E
 
     infix def subst(v: V, e: E): E = subst(Map(v -> e))
 
@@ -20,9 +20,9 @@ package alpha:
 
     def free: Set[V] = Set(this)
 
-    def rename(re: Map[V, V]): V = re.getOrElse(this, this)
+    infix def rename(re: Map[V, V]): V = re.getOrElse(this, this)
 
-    def subst(su: Map[V, E]): E = su.getOrElse(this, this)
+    infix def subst(su: Map[V, E]): E = su.getOrElse(this, this)
 
 
 trait Alpha[E <: alpha.Term[E, V], V <: E with alpha.X[E, V]]:

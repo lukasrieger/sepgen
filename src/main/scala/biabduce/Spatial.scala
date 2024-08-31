@@ -34,17 +34,17 @@ object Spatial extends HasListRepr[Spatial]:
   type L = List[S]
 
   extension (spatialL: L)
-    def rename(re: Map[Expression, Expression]): L =
+    infix def rename(re: Map[Expression, Expression]): L =
       spatialL map (_ renameS re)
 
-    def subst(su: Map[Expression, Expression]): L =
+    infix def subst(su: Map[Expression, Expression]): L =
       spatialL map (_ substS su)
 
   extension (spatialS: S)
-    def renameS(re: Map[Expression, Expression]): S =
+    infix def renameS(re: Map[Expression, Expression]): S =
       spatialS.rename(re).asInstanceOf[S]
 
-    def substS(su: Map[Expression, Expression]): S =
+    infix def substS(su: Map[Expression, Expression]): S =
       spatialS.subst(su).asInstanceOf[S]
   
   given Traversal[Spatial, Spatial] with

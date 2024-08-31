@@ -1,6 +1,6 @@
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "3.3.1"
+ThisBuild / scalaVersion := "3.5.0"
 
 lazy val root = (project in file("."))
   .settings(
@@ -16,4 +16,5 @@ libraryDependencies ++= Seq(
   "org.wvlet.airframe" %% "airframe-log" % "24.4.3"
 )
 
-scalacOptions += "-feature"
+
+scalacOptions += "-experimental"
