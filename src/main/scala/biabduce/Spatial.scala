@@ -13,16 +13,16 @@ enum Spatial:
   case PointsTo(pointer: Expression, field: Option[Name], cell: Expression)
   case SepAnd(left: Spatial, right: Spatial)
 
-  def rename(re: Map[Expression, Expression]): Spatial = this match
+  infix def rename(re: Map[Expression, Expression]): Spatial = this match
     case Spatial.PointsTo(pointer, field, cell) =>
       Spatial.PointsTo(pointer rename re, field, cell rename re)
     case Spatial.SepAnd(left, right) =>
       Spatial.SepAnd(left rename re, right rename re)
     case _ => this
 
-  def subst(su: (Expression, Expression)): Spatial = subst(Map(su))
+  infix def subst(su: (Expression, Expression)): Spatial = subst(Map(su))
 
-  def subst(su: Map[Expression, Expression]): Spatial = this match
+  infix def subst(su: Map[Expression, Expression]): Spatial = this match
     case Spatial.PointsTo(pointer, field, cell) =>
       Spatial.PointsTo(pointer subst su, field, cell subst su)
     case Spatial.SepAnd(left, right) =>
@@ -53,6 +53,5 @@ object Spatial extends HasListRepr[Spatial]:
         case Spatial.SepAnd(left, right) => app.product(f(left), f(right)).map(Spatial.SepAnd.apply)
         case _ => app.pure(s)
 
-
-
-
+  given Conversion[Spatial, Spatial.L] = (spatial: Spatial) => ???
+  given Conversion[Spatial.L, Spatial] = (spatialL: Spatial.L) => ???

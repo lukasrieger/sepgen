@@ -8,12 +8,12 @@ enum Symbolic extends Expression.BindT[Symbolic]:
   def bound: Set[Expression] = this match
     case Exists(vars, _) => vars.toSet
 
-  override def rename(a: Map[Expression, Expression], re: Map[Expression, Expression]) = this match
+  override infix def rename(a: Map[Expression, Expression], re: Map[Expression, Expression]) = this match
     case Symbolic.Exists(vars, body) => 
       Exists(vars map (_.rename(a).asInstanceOf[Expression.LogicalVar]), body rename re)
 
 
-  override def subst(a: Map[Expression, Expression], su: Map[Expression, Expression]) = this match
+  override infix def subst(a: Map[Expression, Expression], su: Map[Expression, Expression]) = this match
     case Symbolic.Exists(vars, body) => 
       Exists(vars map (_.rename(a).asInstanceOf[Expression.LogicalVar]), body subst su)
 

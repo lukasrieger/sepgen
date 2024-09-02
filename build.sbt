@@ -18,3 +18,5 @@ libraryDependencies ++= Seq(
 
 
 scalacOptions += "-experimental"
+scalacOptions += "-feature"
+scalacOptions += "-language:implicitConversions"
