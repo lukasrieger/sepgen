@@ -3,6 +3,7 @@ package biabduce
 import pure.Name
 import util.Alpha
 
+
 enum Expression extends Expression.Term with Expression.X:
   case ProgramVar(v: Name)
   case LogicalVar(v: Name)

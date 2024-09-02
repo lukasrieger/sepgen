@@ -17,12 +17,12 @@ object `**`:
   /**
    * Decompose a quantifier-free formula into its rightmost spatial element and the preceding rest
    */
-  def unapply(quantFree: QuantFree): (QAnd, Spatial) = quantFree match
-    case QAnd(pure, left ** (right@SepAnd(_, _))) =>
-      QAnd(pure, right) match
-        case QAnd(_, rightQ) ** rightmost => QAnd(pure, left * rightQ) -> rightmost
-    case QAnd(pure: Pure, left ** right) => QAnd(pure, left) -> right
-    case QAnd(pure, spatial) => QAnd(pure, Emp) -> spatial
+//  def unapply(quantFree: QuantFree): (QAnd, Spatial) = quantFree match
+//    case QAnd(pure, left ** (right@SepAnd(_, _))) =>
+//      QAnd(pure, right) match
+//        case QAnd(_, rightQ) ** rightmost => QAnd(pure, left * rightQ) -> rightmost
+//    case QAnd(pure: Pure, left ** right) => QAnd(pure, left) -> right
+//    case QAnd(pure, spatial) => QAnd(pure, Emp) -> spatial
 
 extension (symbolic: Symbolic)
   infix def *(s: Symbolic): Symbolic = (symbolic, s) match
