@@ -9,6 +9,13 @@ enum ComplexCommand:
   case Call(name: Name, args: List[ProgExpression])
   case If(condition: Boolean, trueBranch: Command, falseBranch: Command)
   case AndThen(first: Command, second: Command)
+  
+object Command extends HasListRepr[Command]:
+  type S = ComplexCommand.Call | ComplexCommand.If | Atomic
+  type L = List[S]
+
+given Conversion[Command, Command.L] = (pure: Command) => ???
+given Conversion[Command.L, Command] = (pureL: Command.L) => ???
 
 enum Boolean:
   case Eq(left: ProgExpression, right: ProgExpression)
@@ -19,7 +26,7 @@ type Atomic = AtomicAccess | AtomicMod
 enum AtomicAccess:
   case Store(pointer: ProgExpression, field: Option[String], value: ProgExpression)
   case Free(pointer: ProgExpression)
-  case Load(pointer: ProgramVar, value: ProgExpression)
+  case Load(v: ProgramVar, field: Option[String], value: ProgExpression)
 
 
 enum AtomicMod:
@@ -28,6 +35,6 @@ enum AtomicMod:
 enum ProgExpression:
   case ProgramVar(v: Name)
   case Term(t: Any)
-  case Bool
-//  case If(test: )
+  case Bool(b: Boolean)
 
+given Conversion[ProgExpression, Expression] = ???

@@ -12,6 +12,7 @@ enum Spatial:
   case Emp
   case PointsTo(pointer: Expression, field: Option[Name], cell: Expression)
   case SepAnd(left: Spatial, right: Spatial)
+  case Pred(name: Name, params: List[Expression])
 
   infix def rename(re: Map[Expression, Expression]): Spatial = this match
     case Spatial.PointsTo(pointer, field, cell) =>

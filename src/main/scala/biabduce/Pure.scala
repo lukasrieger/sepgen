@@ -70,7 +70,7 @@ object Pure extends HasListRepr[Pure]:
 
 extension (pure: Pure)
   infix def and(p: Pure): Pure = Pure.&(pure, p)
-  infix def and(p: Spatial): QuantFree = QuantFree.QAnd(Subst.empty, pure, p, None)
+  infix def and(p: Spatial): QuantFree = QuantFree.QAnd(pure, p)
 
   infix def and(quant: QuantFree): QuantFree = (pure, quant) match
     case (q, pi ^ sigma) => (q and pi) and sigma

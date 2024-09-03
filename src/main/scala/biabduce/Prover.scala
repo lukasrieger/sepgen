@@ -46,7 +46,7 @@ type Missing = ProverState
 type Frame = Spatial
 
 
-def checkFootprint(
+def runBiabduction(
                     prop1: QuantFree,
                     prop2: QuantFree
                   ): Option[(SubstP, Frame, ProverState)] =
@@ -55,11 +55,9 @@ def checkFootprint(
     val ((sub1, sub2), frame) = _checkImplication(prop1, prop2)(using Mode.CalcMissing, proverState)
     Some((sub1, sub2), frame, proverState)
   catch
-    case e: ProverException => 
+    case e: ProverException =>
       println(s"Failed to find footprint due to: $e")
       None
-
-def movePrimedLhsFromFront(subs: SubstP, sigma2: Spatial.L): Spatial.L = ???
 
 
 def structExpImply(
@@ -90,49 +88,62 @@ def structExpImply(
     case _ => throw FalseExprs("expressions can't be proven to imply each other.", subs, e1, e2, Stop)
 
 
-def filterNeLhs(subst: Subst, e0: Expression, field: Option[Name], sigma: Spatial.S): Option[Unit] = sigma match
-  case PointsTo(e, f, _) if (e subst subst) == e0 && f == field => Some(())
+def filterNeLhs(subst: Subst, e0: Expression, field: Option[Name], sigma: Spatial.S): Option[Spatial.S] = sigma match
+  case p@PointsTo(e, f, _) if (e subst subst) == e0 && f == field => Some(p)
   case _ => None
 
+
+/**
+ * TODO: Simple predicate abduction.
+ * If a predicate appears in hpred2 -> unroll it and recurse
+ * If a PointsTo assertion appears in hpred2 attempt to either find a matching PointsTo on the lhs OR
+ * Find a predicate which mentions the base pointer as an argument and unroll said predicate on the lhs and then recurse.
+ */
 def implySpatial(
                   subs: SubstP,
                   prop1: QuantFree,
                   hpred2: Spatial.S
                 )(using mode: Mode, st: ProverState): (SubstP, QuantFree) throws ProverException =
+  @tailrec
+  def propFind(prop: Spatial.L, filter: Spatial.S => Option[Spatial.S]): Option[Spatial.S] =
+    prop match
+      case hpred :: sigma_ => filter(hpred) match
+        case Some(value) => Some(value)
+        case None => propFind(sigma_, filter)
+      case Nil => None
+       
+  
   hpred2 match
     case True => (subs, prop1)
     case Spatial.Emp => (subs, prop1)
-    case PointsTo(pointer, field, cell) =>
+    case PointsTo(pointer, field, cell) => 
       val e2 = pointer subst subs._2
       e2 match
         case biabduce.Expression.LogicalVar(v) =>
           throw ProverException.FalseSigma("rhs |-> not implemented", subs, hpred2, Stop)
         case _ => ()
 
-      createPropIter(prop1) match
-        case None => throw ImplFalse("lhs is empty", subs, Continue)
-        case Some(iter1) => iter1.find(filterNeLhs(subs._1, e2, field, _)) match
-          case None => throw FalsePointsTo("lhs does not have |->", subs, hpred2, Continue)
-          case Some(iter1_) => (iter1_.pitCurr, iter1_.pitState) match
-            case (PointsTo(_, _, se1), _) =>
-              try
-                val subs_ = structExpImply(subs, se1, cell)
-                val prop1_ = iter1_.removeCurrToProp
-                (subs_, prop1_)
-              catch
-                case e: ProverException => mode match
+      propFind(prop1.sigma, filterNeLhs(subs._1, e2, field, _)) match
+        case None => throw FalsePointsTo("lhs does not have |->", subs, hpred2, Continue)
+        case Some(value) => value match
+          case PointsTo(_, _, se1) => 
+            try 
+              val subs_ = structExpImply(subs, se1, cell)
+              (subs_, prop1)
+            catch
+              case e: ProverException =>
+                mode match
                   case Mode.CalcMissing => throw MissingExc("\"could not match |-> present on both sides\"")
                   case Mode.FailOnMissing => throw e
-            case (Emp, _) => throw MissingExc("\"could not match |-> (Emp)\"")
-            case (True, _) => throw MissingExc("\"could not match |-> (True)\"")
-
+          case Emp => throw MissingExc("\"could not match |-> (Emp)\"")
+          case True => throw MissingExc("\"could not match |-> (True)\"")
 
 def sigmaImply(
                 subs: SubstP,
                 prop1: QuantFree,
                 sigma2: Spatial.L
               )(using mode: Mode, st: ProverState): (SubstP, QuantFree) throws ProverException =
-  movePrimedLhsFromFront(subs, sigma2) match
+  sigma2 match
     case Nil => (subs, prop1)
     case spatial :: sigma2_ =>
       val (subs_, prop1_) = try implySpatial(subs, prop1, spatial)
@@ -155,8 +166,8 @@ def _checkImplication(
                        prop1: QuantFree,
                        prop2: QuantFree
                      )(using mode: Mode, st: ProverState): (SubstP, Spatial) throws ProverException  =
-  val (_, pi1, sigma1, _) = prop1.refine
-  val (_, pi2, sigma2, _) = prop2.refine
+  val (pi1, sigma1) = prop1.refine
+  val (pi2, sigma2) = prop2.refine
   val substitutions = preCheckPureImplication(SubstP.empty, pi1, pi2)
 
   val ((sub1, sub2), frame) = sigmaImply(substitutions, prop1, sigma2)
