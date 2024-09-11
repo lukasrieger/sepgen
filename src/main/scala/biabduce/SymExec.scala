@@ -1,5 +1,6 @@
 package biabduce
 
+import biabduce.ComplexCommand.NoOp
 import biabduce.Expression.{LogicalVar, ProgramVar, UnOp}
 import biabduce.Spatial.PointsTo
 import pure.Name
@@ -91,6 +92,8 @@ def symExecTop(command: Command.L)
       )
     case (atomic: Atomic) :: tail =>
       symExecTop(tail)(propSet map symExecInstr(atomic))
+
+    case NoOp :: tail => symExecTop(tail)(propSet)
     case Nil => propSet
 
 
