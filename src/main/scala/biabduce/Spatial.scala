@@ -10,7 +10,7 @@ import pure.Name
 enum Spatial:
   case True
   case Emp
-  case PointsTo(pointer: Expression, field: Option[Name], cell: Expression)
+  case PointsTo(pointer: Expression, field: Option[String], cell: Expression)
   case SepAnd(left: Spatial, right: Spatial)
   case Pred(name: Name, params: List[Expression])
 
@@ -35,6 +35,9 @@ object Spatial extends HasListRepr[Spatial]:
   type L = List[S]
 
   extension (spatialL: L)
+    
+    infix def normalize(su: Map[Expression, Expression]): L = spatialL subst su
+    
     infix def rename(re: Map[Expression, Expression]): L =
       spatialL map (_ renameS re)
 
@@ -42,6 +45,7 @@ object Spatial extends HasListRepr[Spatial]:
       spatialL map (_ substS su)
 
   extension (spatialS: S)
+    
     infix def renameS(re: Map[Expression, Expression]): S =
       spatialS.rename(re).asInstanceOf[S]
 

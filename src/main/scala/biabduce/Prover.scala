@@ -18,6 +18,10 @@ type SubstP = (Subst, Subst)
 object Subst:
   def empty: Subst = Map.empty
 
+  extension (sub: Subst)
+    infix def rangeMap(f: Expression => Expression): Subst =
+      sub map ((i, e) => (i, f(e)))
+
 object SubstP:
   def empty: SubstP = (Map.empty, Map.empty)
 
@@ -88,7 +92,7 @@ def structExpImply(
     case _ => throw FalseExprs("expressions can't be proven to imply each other.", subs, e1, e2, Stop)
 
 
-def filterNeLhs(subst: Subst, e0: Expression, field: Option[Name], sigma: Spatial.S): Option[Spatial.S] = sigma match
+def filterNeLhs(subst: Subst, e0: Expression, field: Option[String], sigma: Spatial.S): Option[Spatial.S] = sigma match
   case p@PointsTo(e, f, _) if (e subst subst) == e0 && f == field => Some(p)
   case _ => None
 
@@ -185,7 +189,8 @@ def preCheckPureImplication(
                              pi2: Pure.L
                            )(using mode: Mode, st: ProverState): SubstP throws ProverException  =
   pi2 match
-    case Nil | True :: _ => subs
+    case Nil  => subs
+    case True :: _ => subs
     case (e2_in =:= f2_in) :: pi2_ =>
       val (e2, f2) = (e2_in subst subs._2, f2_in subst subs._2)
 
@@ -235,4 +240,52 @@ def _implyAtom(
       //// TODO impl check_disequal
       case _ =!= _ => throw FalseAtom("atom in rhs missing in lhs", subs, a, Continue)
       case _ => ()
+
+
+
+def checkEqual(prop: Prop, e1: Expression, e2: Expression): Boolean =
+  val pi = prop.pi
+  val n_e1 = prop.expNormalizeProp(e1)
+  val n_e2 = prop.expNormalizeProp(e2)
+  if n_e1 == n_e2 then true
+  else
+    pi contains (prop pureNormalizeProp Pure.=:=(n_e1, n_e2))
+
+
+def checkDisequal(prop: Prop, e1: Expressio, e2: Expression): Boolean =
+  def doesPiImplyDisequal(ne: Expression, ne_ : Expression) =
+    pi contains (prop pureNormalizeProp Pure.=!=(ne, ne_))
+
+  val pi = prop.pi
+  val spatial = prop.sigma
+  val n_e1 = prop expNormalizeProp e1
+  val n_e2 = prop expNormalizeProp e2
+
+  def neqSpatialPart =
+    @tailrec
+    def f(sigmaIrrelevant: Spatial.L, e: Expression, rest: Spatial.L): Option[(Boolean, Spatial.L)] = rest match
+      case (hpred@Spatial.PointsTo(base, field, _)) :: tail =>
+        field match
+          case Some(_) => Some(true, sigmaIrrelevant.reverse ::: tail)
+          case None => f(hpred :: sigma_irrelevant, e, tail)
+      case Nil => None
+
+    def fNullCheck(sigmaIrrelevant: Spatial.L, e: Expression, rest: Spatial.L): Option[(Boolean, Spatial.L)] =
+      if e != Expression.Const(0) then f(sigmaIrrelevant, e, rest)
+      else Some(false, sigmaIrrelevant.reverse ::: rest)
+
+    fNullCheck(List.empty, n_e1, spatial) match
+      case Some((e1Allocated, spatialLeftover)) => fNullCheck(List.empty, n_e2, spatialLeftover) match
+        case Some((e2Allocated, _)) => e1Allocated || e2Allocated
+        case None => false
+      case None => false
+    
+  def neqPurePart = doesPiImplyDisequal(n_e1, n_e2)
+    
+  neqPurePart || neqSpatialPart
+
+
+def checkInconsistency(prop: Prop): Boolean = ???
+
+
 

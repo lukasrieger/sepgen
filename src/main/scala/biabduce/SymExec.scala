@@ -5,71 +5,81 @@ import biabduce.Spatial.PointsTo
 import pure.Name
 
 import scala.annotation.tailrec
-import biabduce.given_Conversion_ProgramVar_Expression
-
-import language.experimental.saferExceptions
+import scala.language.experimental.saferExceptions
 
 enum SymException extends Exception:
   case BiAbductionFailure(state: QuantFree, failAt: Spatial)
   case Other(reason: Any)
 
 
-extension (sigma: Spatial.L)
+extension (prop: Prop)
 
-  @tailrec
-  infix def load(pointer: ProgExpression, field: Option[String]): Option[Expression] =
-    sigma match
-      case Spatial.PointsTo(`pointer`, `field`, value) :: _ => Some(value)
-      case _ :: tail => tail load (pointer, field)
-      case Nil => None
+  /*
+  We either expose the value on the heap if it exists,
+  OR we instantiate a new logical variable as a placeholder.
+  This will then be picked up during bi-abduction.
+   */
 
-  @tailrec infix def store(
-                            pointer: PointsTo & Spatial.S,
-                            seen: List[Spatial.S] = List.empty
-                          ): Spatial.L =
-    sigma match
-      case PointsTo(pointer.pointer, pointer.field, _) :: rest =>
-        ((seen :+ pointer) ::: rest).asInstanceOf[Spatial.L]
-      case other :: tail =>
-        tail store(pointer, seen :+ other)
-      case Nil => sigma
+  infix def load(pointer: ProgExpression, field: Option[String]): (Expression, Prop) =
+    @tailrec
+    def go(pointer: ProgExpression, field: Option[String])(sigma: Spatial.L): (Expression, Boolean) =
+      sigma match
+        case Spatial.PointsTo(`pointer`, `field`, value) :: _ => value -> false
+        case _ :: tail => go(pointer, field)(tail)
+        case Nil => 
+          val log = LogicalVar(field.map(s => Name(s.appended('_'))).getOrElse(Name.someLogical))
+          log -> true
+
+    go(pointer, field)(prop.sigma) match
+      case (exp, false) => (exp, prop)
+      case (exp, true) => (exp, prop extendSigmaAndFootprint PointsTo(pointer, field, exp))
 
 
 
-def symExecInstr(command: Command.L)(prop: QuantFree): (QuantFree, QuantFree) throws SymException = command match
-  case biabduce.AtomicAccess.Store(pointer, field, value) :: tail => ???
-  case biabduce.AtomicAccess.Free(pointer) :: tail => ???
-  case biabduce.AtomicAccess.Load(v, field, value) :: tail =>
-    prop.sigma.convert load(value, field) match
-      case Some(value) => 
-        val (pre, post) = symExecInstr(tail)(prop)
-        (pre subst Map(v.convert -> value), post subst Map(v.convert -> value))
-      case None => 
-        // prop is insufficient -> run bi-abduction
-        val toProve = PointsTo(ProgramVar(v.v), field.map(Name.apply(_, None)), LogicalVar(v.v.increment))
-        runBiabduction(
-          prop,
-          QuantFree.QAnd(
-            pi = Pure.True,
-            sigma = toProve
-          )
-        ) match
-          case Some((subs, frame, missing)) => 
-            // We may now assume our post-condition + the computed frame
-            val nextProp = prop.copy(sigma = Spatial.SepAnd(frame, toProve) subst subs._2)
-            val (pre: QuantFree, post: QuantFree) = symExecInstr(tail)(nextProp)
-            val newPre = pre.copy(
-              pi = Pure.&(pre.pi, missing.missingPi) subst sub._1,
-              sigma = Spatial.SepAnd(pre.sigma, missing.missingSigma) subst subs._1
-            )
-            (newPre, post)
-            
-          case None => throw SymException.BiAbductionFailure(prop, toProve)
-  case biabduce.AtomicMod.Assign(x, expr) :: tail => 
-    val (pre, post) = symExecInstr(tail)(prop)
-    (pre subst Map(x.convert -> expr.convert)) -> (post subst Map(x.convert -> expr.convert))
-  case biabduce.ComplexCommand.Call(_, _) :: tail => ???
-  case biabduce.ComplexCommand.If(_, _, _) :: tail => ???
-  case Nil => ???
+  infix def store(pointer: PointsTo): Prop =
+    @tailrec
+    def go(pointer: PointsTo, seen: List[Spatial.S] = List.empty)(sigma: Spatial.L): Spatial.L =
+      sigma match
+        case PointsTo(pointer.pointer, pointer.field, _) :: tail =>
+          (seen :+ pointer) ::: tail
+        case other :: tail => go(pointer, seen :+ other)(tail)
+        case Nil => sys.error(s"Failed to store $pointer, matching |-> doesnt exist even though it should.")
       
-    
+    prop updateSigma go(pointer)
+
+/*
+TODO: I think we need to adjust the semantics of store and load such that they always have
+      a spatial postcodnition that simply asserts that some var is now logically equal to the pointer contents
+      + the existance of the pointer
+ */
+
+/*
+IMPORTANT  TODO: !!NORMALIZATION!!
+ */
+
+def symExecInstr(command: Atomic)(prop: Prop): Prop throws SymException = command match
+  case biabduce.AtomicAccess.Store(pointer, field, newValue) =>
+    val (_, prop_) = prop load (pointer, field)
+    prop_ store PointsTo(pointer, field, newValue)
+  case biabduce.AtomicAccess.Free(pointer) =>
+    ???
+  case biabduce.AtomicAccess.Load(v, field, pointer)  =>
+    val (value, prop_) = prop load (pointer , field)
+    prop_ conjoinEq (v, value)
+  case biabduce.AtomicMod.Assign(x, expr)  =>
+    prop conjoinEq (x, expr)
+      
+
+
+def symExecTop(command: Command.L)(prop: Prop): Seq[Prop] throws SymException = command match
+  case ComplexCommand.Call(name, args) :: tail => ???
+  case ComplexCommand.If(condition, trueBranch, falseBranch) :: tail  =>
+    val enumerateCases: Seq[Prop] = ???
+    for
+      caseProp <- enumerateCases
+      res <- symExecTop(tail)(caseProp)
+    yield res
+  case (atomic: Atomic) :: tail  => symExecTop(tail)(symExecInstr(atomic)(prop))
+  case Nil => Seq(prop)
+  
+  

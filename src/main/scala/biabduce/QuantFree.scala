@@ -2,10 +2,6 @@ package biabduce
 
 import biabduce.QuantFree.QAnd
 
-case class Footprint(
-                    pi: Pure.L,
-                    sigma: Spatial.L
-                    )
 
 enum QuantFree:
   case QAnd(

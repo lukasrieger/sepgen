@@ -40,12 +40,18 @@ enum Pure:
     case left =!= right => (left subst su) =!= (right subst su)
     case left & right => (left subst su) & (right subst su)
     case Pure.True => True
+    
+  infix def normalize(su: Map[Expression, Expression]) = this subst su
 
 object Pure extends HasListRepr[Pure]:
   type S = Pure.=:= | Pure.=!= | Pure.True.type
   type L = List[S]
 
   extension (pureL: L)
+    
+    infix def normalize(su: Map[Expression, Expression]): L =
+      pureL map (_ normalizeS su)
+    
     infix def rename(re: Map[Expression, Expression]): L =
       pureL map (_ renameS re)
 
@@ -53,6 +59,9 @@ object Pure extends HasListRepr[Pure]:
       pureL map (_ substS su)
 
   extension (pureS: S)
+
+    infix def normalizeS(su: Map[Expression, Expression]): S = pureS substS su
+    
     infix def renameS(re: Map[Expression, Expression]): S =
       pureS.rename(re).asInstanceOf[S]
 
