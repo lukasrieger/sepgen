@@ -14,6 +14,7 @@ enum Op(val symbol: String):
   case Gt extends Op(">")
   case Eq extends Op("==")
   case Neq extends Op("!=")
+  case Not extends Op("!")
 
 enum Expression extends Expression.Term with Expression.X:
   case ProgramVar(v: Name)
@@ -21,6 +22,7 @@ enum Expression extends Expression.Term with Expression.X:
   case AnyTerm(t: Any)
   case Const(const: Int)
   case BinOp(left: Expression, op: Op, right: Expression)
+  case UnOp(op: Op, expr: Expression)
 
   override def fresh(index: Int): Expression = this match
     case Expression.ProgramVar(v) => Expression.ProgramVar(v.withIndex(index))

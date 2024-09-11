@@ -1,6 +1,6 @@
 package biabduce
 
-import biabduce.Expression.{LogicalVar, ProgramVar}
+import biabduce.Expression.{LogicalVar, ProgramVar, UnOp}
 import biabduce.Spatial.PointsTo
 import pure.Name
 
@@ -14,19 +14,19 @@ enum SymException extends Exception:
 
 extension (prop: Prop)
 
-  /*
-  We either expose the value on the heap if it exists,
-  OR we instantiate a new logical variable as a placeholder.
-  This will then be picked up during bi-abduction.
-   */
+/*
+We either expose the value on the heap if it exists,
+OR we instantiate a new logical variable as a placeholder.
+This will then be picked up during bi-abduction.
+ */
 
-  infix def load(pointer: ProgExpression, field: Option[String]): (Expression, Prop) =
+  infix def load(pointer: Expression, field: Option[String]): (Expression, Prop) =
     @tailrec
-    def go(pointer: ProgExpression, field: Option[String])(sigma: Spatial.L): (Expression, Boolean) =
+    def go(pointer: Expression, field: Option[String])(sigma: Spatial.L): (Expression, Boolean) =
       sigma match
         case Spatial.PointsTo(`pointer`, `field`, value) :: _ => value -> false
         case _ :: tail => go(pointer, field)(tail)
-        case Nil => 
+        case Nil =>
           val log = LogicalVar(field.map(s => Name(s.appended('_'))).getOrElse(Name.someLogical))
           log -> true
 
@@ -44,7 +44,7 @@ extension (prop: Prop)
           (seen :+ pointer) ::: tail
         case other :: tail => go(pointer, seen :+ other)(tail)
         case Nil => sys.error(s"Failed to store $pointer, matching |-> doesnt exist even though it should.")
-      
+
     prop updateSigma go(pointer)
 
 /*
@@ -57,29 +57,79 @@ TODO: I think we need to adjust the semantics of store and load such that they a
 IMPORTANT  TODO: !!NORMALIZATION!!
  */
 
-def symExecInstr(command: Atomic)(prop: Prop): Prop throws SymException = command match
-  case biabduce.AtomicAccess.Store(pointer, field, newValue) =>
-    val (_, prop_) = prop load (pointer, field)
-    prop_ store PointsTo(pointer, field, newValue)
-  case biabduce.AtomicAccess.Free(pointer) =>
+def symExecInstr(command: Atomic)
+                (prop: Prop): Prop throws SymException =
+  command match
+    case biabduce.AtomicAccess.Store(pointer, field, newValue) =>
+      val (_, prop_) = prop load(pointer, field)
+      prop_ store PointsTo(pointer, field, newValue)
+    case biabduce.AtomicAccess.Free(pointer) =>
+      ???
+    case biabduce.AtomicAccess.Load(v, field, pointer) =>
+      val (value, prop_) = prop load(pointer, field)
+      prop_ conjoinEq(v, value)
+    case biabduce.AtomicMod.Assign(x, expr) =>
+      prop conjoinEq(x, expr)
+
+case class DefEnv(defs: Map[Name, Command.L])
+
+def symExecTop(command: Command.L)
+              (propSet: PropSet)
+              (using env: DefEnv): PropSet throws SymException =
+  command match
+    case ComplexCommand.Call(name, args) :: tail =>
+
+
+      ???
+    case ComplexCommand.If(condition, trueBranch, falseBranch) :: tail =>
+      symExecTop(
+        command = tail
+      )(propSet = symExecTop(trueBranch)(propSet pruneBy condition) union
+        symExecTop(falseBranch)(propSet pruneBy UnOp(Op.Not, condition))
+      )
+    case (atomic: Atomic) :: tail =>
+      symExecTop(tail)(propSet map symExecInstr(atomic))
+    case Nil => propSet
+
+
+def symExeFunctionCall(fnName: Name, actualParams: List[Expression])
+                      (prop: Prop)
+                      (using specTable: SpecTable, procTable: ProcTable): PropSet =
+  val spec = specTable lookupSpec fnName
+  val proc = procTable lookupProc fnName
+  val results = spec map (exeSpec(fnName, prop, _, actualParams, proc.formals))
+  results.toSet.flatten
+
+
+
+def exeSpec(
+             name: Name,
+             prop: Prop,
+             spec: Specification,
+             actualParams: List[Expression],
+             formalParams: List[ProgramVar]
+           ): PropSet =
+  
+  def combine(prop: Prop, prop1: Prop, splitting: Splitting, name: Name) =
+    val sub = splitting.sub._1 concat splitting.sub._2
+    val newFootprintPi = splitting.missingPi subst sub
+    val newFootprintSigma = splitting.missingSigma subst sub
+    val instantiatedFrame = splitting.frame subst sub
+    val instantiatedPost = 
+
     ???
-  case biabduce.AtomicAccess.Load(v, field, pointer)  =>
-    val (value, prop_) = prop load (pointer , field)
-    prop_ conjoinEq (v, value)
-  case biabduce.AtomicMod.Assign(x, expr)  =>
-    prop conjoinEq (x, expr)
-      
-
-
-def symExecTop(command: Command.L)(prop: Prop): Seq[Prop] throws SymException = command match
-  case ComplexCommand.Call(name, args) :: tail => ???
-  case ComplexCommand.If(condition, trueBranch, falseBranch) :: tail  =>
-    val enumerateCases: Seq[Prop] = ???
-    for
-      caseProp <- enumerateCases
-      res <- symExecTop(tail)(caseProp)
-    yield res
-  case (atomic: Atomic) :: tail  => symExecTop(tail)(symExecInstr(atomic)(prop))
-  case Nil => Seq(prop)
   
   
+  def instantiateFormals =
+    val params = actualParams zip formalParams
+    val instantiated: List[Spatial.S] = params.map: (actual, formal) =>
+      Spatial.PointsTo(formal, None, actual)
+    prop extendSigma instantiated
+  
+  val inst = instantiateFormals
+  runBiabduction(spec.pre, inst) match
+    case Some(split) => combine(spec.post, inst, split, name)
+    case None => sys.error("Bi-abduction seems to have failed")
+
+
+  ???

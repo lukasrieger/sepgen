@@ -23,12 +23,18 @@ case class Prop(
                 sigma: Spatial.L,
                 footprint: Footprint
                 ):
+  
+  
+  def toQuantFree = QuantFree.QAnd(pi = this.pi, sigma = this.sigma)
 
   infix def extendPi(pi: Pure.S): Prop =
     copy(pi = Pure.&(pi, this.pi))
 
   infix def extendSigma(sigma: Spatial.S): Prop =
     copy(sigma = SepAnd(sigma, this.sigma))
+    
+  infix def extendSigma(sigma: Spatial.L): Prop =
+    copy(sigma = (sigma ::: this.sigma).asInstanceOf[Spatial.L] subst this.sub)
 
   infix def updateSigma(fn: Spatial.L => Spatial.L): Prop =
     copy(sigma = fn(sigma))
@@ -85,6 +91,12 @@ case class Prop(
   infix def pureNormalizeProp(atom: Pure) =
     atom normalize (this.sub)
 
+
+  infix def renameNoNormalize(sub: Subst): Prop =
+    val pi: Pure.L = this.sub.toList.map(Pure.=:=(_, _)) ::: this.pi
+    val pi_ = pi subst sub
+    val sigma_ = this.sigma subst sub
+    this.copy(sub = Subst.empty, pi = pi_, sigma = sigma_)
 
 def symEval(e: Expression): Expression = e match
   case ProgramVar(v) => e

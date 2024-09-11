@@ -6,8 +6,8 @@ import pure.Name
 type Command = Atomic | ComplexCommand
 
 enum ComplexCommand:
-  case Call(name: Name, args: List[ProgExpression])
-  case If(condition: BoolExp, trueBranch: Command, falseBranch: Command)
+  case Call(name: Name, args: List[Expression])
+  case If(condition: Expression, trueBranch: Command, falseBranch: Command)
   case AndThen(first: Command, second: Command)
   
 object Command extends HasListRepr[Command]:
@@ -17,17 +17,13 @@ object Command extends HasListRepr[Command]:
 given Conversion[Command, Command.L] = (pure: Command) => ???
 given Conversion[Command.L, Command] = (pureL: Command.L) => ???
 
-enum BoolExp:
-  case Eq(left: ProgExpression, right: ProgExpression)
-  case InEq(left: ProgExpression, right: ProgExpression)
 
 type Atomic = AtomicAccess | AtomicMod
 
 enum AtomicAccess:
-  case Store(pointer: ProgExpression, field: Option[String], value: ProgExpression)
-  case Free(pointer: ProgExpression)
-  case Load(v: ProgramVar, field: Option[String], value: ProgExpression)
-
+  case Store(pointer: Expression, field: Option[String], value: Expression)
+  case Free(pointer: Expression)
+  case Load(v: ProgramVar, field: Option[String], value: Expression)
 
 enum AtomicMod:
   case Assign(variable: ProgramVar, value: ProgExpression)
@@ -35,6 +31,3 @@ enum AtomicMod:
 enum ProgExpression:
   case ProgramVar(v: Name)
   case Term(t: Any)
-  case Bool(b: BoolExp)
-
-given Conversion[ProgExpression, Expression] = ???

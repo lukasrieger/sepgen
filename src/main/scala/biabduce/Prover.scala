@@ -49,15 +49,17 @@ case class ProverState(var missingPi: Pure.L, var missingSigma: Spatial.L):
 type Missing = ProverState
 type Frame = Spatial
 
+case class Splitting(sub: SubstP, frame: Frame, missingPi: Pure.L, missingSigma: Spatial.L)
+
 
 def runBiabduction(
-                    prop1: QuantFree,
-                    prop2: QuantFree
-                  ): Option[(SubstP, Frame, ProverState)] =
+                    prop1: Prop,
+                    prop2: Prop
+                  ): Option[Splitting] =
   try
     val proverState = ProverState(missingPi = List.empty, missingSigma = List.empty)
-    val ((sub1, sub2), frame) = _checkImplication(prop1, prop2)(using Mode.CalcMissing, proverState)
-    Some((sub1, sub2), frame, proverState)
+    val ((sub1, sub2), frame) = _checkImplication(prop1.toQuantFree, prop2.toQuantFree)(using Mode.CalcMissing, proverState)
+    Some(Splitting((sub1, sub2), frame, proverState.missingPi, proverState.missingSigma))
   catch
     case e: ProverException =>
       println(s"Failed to find footprint due to: $e")
@@ -252,7 +254,7 @@ def checkEqual(prop: Prop, e1: Expression, e2: Expression): Boolean =
     pi contains (prop pureNormalizeProp Pure.=:=(n_e1, n_e2))
 
 
-def checkDisequal(prop: Prop, e1: Expressio, e2: Expression): Boolean =
+def checkDisequal(prop: Prop, e1: Expression, e2: Expression): Boolean =
   def doesPiImplyDisequal(ne: Expression, ne_ : Expression) =
     pi contains (prop pureNormalizeProp Pure.=!=(ne, ne_))
 
@@ -267,7 +269,7 @@ def checkDisequal(prop: Prop, e1: Expressio, e2: Expression): Boolean =
       case (hpred@Spatial.PointsTo(base, field, _)) :: tail =>
         field match
           case Some(_) => Some(true, sigmaIrrelevant.reverse ::: tail)
-          case None => f(hpred :: sigma_irrelevant, e, tail)
+          case None => f(hpred :: sigmaIrrelevant, e, tail)
       case Nil => None
 
     def fNullCheck(sigmaIrrelevant: Spatial.L, e: Expression, rest: Spatial.L): Option[(Boolean, Spatial.L)] =

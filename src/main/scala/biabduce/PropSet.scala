@@ -1,6 +1,6 @@
 package biabduce
 
-import biabduce.Expression.{AnyTerm, BinOp, Const, LogicalVar, ProgramVar}
+import biabduce.Expression.{AnyTerm, BinOp, Const, LogicalVar, ProgramVar, UnOp}
 
 import scala.annotation.tailrec
 
@@ -16,14 +16,15 @@ object PropSet:
 
 
 extension (propSet: PropSet)
-
   @tailrec
-  def prunePolarity(polarity: Boolean, condition: Expression): PropSet = condition match
+  infix def prunePolarity(positive: Boolean, condition: Expression): PropSet = condition match
     case ProgramVar(_) | LogicalVar(_) =>
-      propSet prunePolarity BinOp(condition, if positive then Op.Eq else Op.Neq, Const(0))
-    case AnyTerm(t) => pset
+      propSet prunePolarity (true, BinOp(condition, if positive then Op.Eq else Op.Neq, Const(0)))
+    case AnyTerm(t) => propSet
     case Const(0) => PropSet.empty
-    case Const(const) => propSet
+    case Const(_) => propSet
+    case UnOp(Op.Not, expr) => propSet prunePolarity (!positive, expr)
+    case UnOp(_, _) => ???
     case BinOp(left, Op.Eq, right) => 
       def f(currPropSet: PropSet, prop: Prop) =
         val isInconsistent = 
@@ -38,8 +39,7 @@ extension (propSet: PropSet)
           
           if checkInconsistency(newProp) then currPropSet
           else currPropSet + newProp
-      propSet foldLeft (PropSet.empty, f)
-      
+      propSet.foldLeft(PropSet.empty)(f)
     case BinOp(left, Op.Neq, right) =>
       def f(currPropSet: PropSet, prop: Prop) =
         val isInconsistent =
@@ -54,11 +54,11 @@ extension (propSet: PropSet)
 
           if checkInconsistency(newProp) then currPropSet
           else currPropSet + newProp
-      propSet foldLeft (PropSet.empty, f)
+      propSet.foldLeft(PropSet.empty)(f)
     case BinOp(left, Op.Gt, right) => ???
     case BinOp(left, op, right) => propSet  
 
-  def pruneBy(condition: Expression): PropSet =
+  infix def pruneBy(condition: Expression): PropSet =
     val (setTrue, setUnknown) = propSet.foldLeft((PropSet.empty, PropSet.empty)): (sets, prop) =>
       val (setTrue, setUnknown) = sets
       prop expNormalizeProp condition match
