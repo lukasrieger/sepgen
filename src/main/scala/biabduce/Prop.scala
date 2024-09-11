@@ -23,8 +23,32 @@ case class Prop(
                 sigma: Spatial.L,
                 footprint: Footprint
                 ):
+
+  def addFootprintPiSigma(pi: Pure.L, sigma: Spatial.L): Prop =
+    val footprint_ = Footprint(
+      pi = pi ::: this.footprint.pi,
+      sigma = sigma ::: this.footprint.sigma
+    )
+    val prop1 = this.copy(footprint = footprint_)
+    val prop2 = pi.foldRight(prop1)((eq, p) => p atomAnd eq )
+    prop2
+
+  def copyFootprintPureInto(p2: Prop): Prop =
+    this.pi.foldLeft(p2.copy(footprint = this.footprint))((p, s) => p.atomAnd(s))
+
   
-  
+  infix def subst(sub: Subst): Prop =
+    val pi: Pure.L = (this.pi ::: this.sub.toList.map(Pure.=:=(_, _))).asInstanceOf[Pure.L]
+    val pi_ = pi subst sub
+    val sigma_ = this.sigma subst sub
+    val prop0 = Prop(
+      sub = Subst.empty,
+      pi = List.empty,
+      sigma = sigma_,
+      footprint = Footprint(pi = List.empty, sigma = List.empty)
+    )
+    pi_.foldLeft(prop0)((p, s) => p.atomAnd(s) )
+
   def toQuantFree = QuantFree.QAnd(pi = this.pi, sigma = this.sigma)
 
   infix def extendPi(pi: Pure.S): Prop =
@@ -32,7 +56,7 @@ case class Prop(
 
   infix def extendSigma(sigma: Spatial.S): Prop =
     copy(sigma = SepAnd(sigma, this.sigma))
-    
+
   infix def extendSigma(sigma: Spatial.L): Prop =
     copy(sigma = (sigma ::: this.sigma).asInstanceOf[Spatial.L] subst this.sub)
 

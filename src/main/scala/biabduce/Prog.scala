@@ -1,6 +1,7 @@
 package biabduce
 
-import biabduce.ProgExpression.ProgramVar
+
+import biabduce.Expression.ProgramVar
 import pure.Name
 
 type Command = Atomic | ComplexCommand
@@ -26,8 +27,4 @@ enum AtomicAccess:
   case Load(v: ProgramVar, field: Option[String], value: Expression)
 
 enum AtomicMod:
-  case Assign(variable: ProgramVar, value: ProgExpression)
-
-enum ProgExpression:
-  case ProgramVar(v: Name)
-  case Term(t: Any)
+  case Assign(variable: ProgramVar, value: Expression)

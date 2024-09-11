@@ -255,13 +255,15 @@ def checkEqual(prop: Prop, e1: Expression, e2: Expression): Boolean =
 
 
 def checkDisequal(prop: Prop, e1: Expression, e2: Expression): Boolean =
-  def doesPiImplyDisequal(ne: Expression, ne_ : Expression) =
-    pi contains (prop pureNormalizeProp Pure.=!=(ne, ne_))
-
   val pi = prop.pi
   val spatial = prop.sigma
   val n_e1 = prop expNormalizeProp e1
   val n_e2 = prop expNormalizeProp e2
+  
+  def doesPiImplyDisequal(ne: Expression, ne_ : Expression) =
+    pi contains (prop pureNormalizeProp Pure.=!=(ne, ne_))
+
+
 
   def neqSpatialPart =
     @tailrec

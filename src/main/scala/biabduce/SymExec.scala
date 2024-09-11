@@ -75,12 +75,14 @@ case class DefEnv(defs: Map[Name, Command.L])
 
 def symExecTop(command: Command.L)
               (propSet: PropSet)
-              (using env: DefEnv): PropSet throws SymException =
+              (using specTable: SpecTable, procTable: ProcTable): PropSet throws SymException =
   command match
     case ComplexCommand.Call(name, args) :: tail =>
-
-
-      ???
+      val results = for
+        prop <- propSet
+        res = symExeFunctionCall(name, args)(prop)
+      yield symExecTop(tail)(res)
+      results.flatten
     case ComplexCommand.If(condition, trueBranch, falseBranch) :: tail =>
       symExecTop(
         command = tail
@@ -98,7 +100,7 @@ def symExeFunctionCall(fnName: Name, actualParams: List[Expression])
   val spec = specTable lookupSpec fnName
   val proc = procTable lookupProc fnName
   val results = spec map (exeSpec(fnName, prop, _, actualParams, proc.formals))
-  results.toSet.flatten
+  results.toSet
 
 
 
@@ -108,28 +110,26 @@ def exeSpec(
              spec: Specification,
              actualParams: List[Expression],
              formalParams: List[ProgramVar]
-           ): PropSet =
-  
-  def combine(prop: Prop, prop1: Prop, splitting: Splitting, name: Name) =
+           ): Prop =
+
+  def combine(post: Prop, prop: Prop, splitting: Splitting) =
     val sub = splitting.sub._1 concat splitting.sub._2
     val newFootprintPi = splitting.missingPi subst sub
     val newFootprintSigma = splitting.missingSigma subst sub
     val instantiatedFrame = splitting.frame subst sub
-    val instantiatedPost = 
+    val instantiatedPost = post subst sub
+    val post_1 = prop.copyFootprintPureInto(instantiatedPost).extendSigma(instantiatedFrame)
+    val post_2 = newFootprintPi.foldLeft(post_1)((p, s) => p.atomAnd(s))
 
-    ???
-  
-  
+    post_2.addFootprintPiSigma(newFootprintPi, newFootprintSigma)
+
   def instantiateFormals =
     val params = actualParams zip formalParams
     val instantiated: List[Spatial.S] = params.map: (actual, formal) =>
       Spatial.PointsTo(formal, None, actual)
     prop extendSigma instantiated
-  
+
   val inst = instantiateFormals
   runBiabduction(spec.pre, inst) match
-    case Some(split) => combine(spec.post, inst, split, name)
+    case Some(split) => combine(spec.post, inst, split)
     case None => sys.error("Bi-abduction seems to have failed")
-
-
-  ???
