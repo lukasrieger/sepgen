@@ -31,7 +31,7 @@ enum Spatial:
     case _ => this
 
 object Spatial extends HasListRepr[Spatial]:
-  type S = Spatial.Emp.type | Spatial.PointsTo | Spatial.True.type
+  type S = Spatial.Emp.type | Spatial.PointsTo | Spatial.True.type | Spatial.Pred
   type L = List[S]
 
   extension (spatialL: L)

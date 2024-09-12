@@ -3,7 +3,7 @@ package biabduce.dsl
 import biabduce.ComplexCommand.*
 import biabduce.{AtomicAccess, AtomicMod, Command, ComplexCommand, Expression, Op, Proc}
 import biabduce.Expression.*
-import pure.{Name, Var, Name as args}
+import pure.Name
 
 import scala.collection.mutable.ListBuffer
 import scala.language.dynamics
@@ -72,7 +72,7 @@ def store(partial: StructPointer, arg: Expression)(using s: ProgramScope): Unit 
 def store(arg: Expression): PartialStore =
   PartialStore(arg)
 
-inline def when(test: Expression)(ifTrue: ProgramScope ?=> Unit)(using s: ProgramScope): PartialWhen =
+def when(test: Expression)(ifTrue: ProgramScope ?=> Unit)(using s: ProgramScope): PartialWhen =
   given subScope: ProgramScope = new ProgramScope(s.proc) {}
 
   val _ = ifTrue

@@ -4,7 +4,7 @@ import biabduce.Cont.{Continue, Stop}
 import biabduce.Expression.*
 import biabduce.Mode.{CalcMissing, FailOnMissing}
 import biabduce.ProverException.{FalseAtom, FalseExprs, FalsePointsTo, ImplFalse, MissingExc}
-import biabduce.Spatial.{Emp, PointsTo, True, given_Conversion_Spatial_L}
+import biabduce.Spatial.{Emp, PointsTo, Pred, True, given_Conversion_Spatial_L}
 import biabduce.Pure.{=:=, *}
 import pure.Name
 
@@ -55,7 +55,7 @@ case class Splitting(sub: SubstP, frame: Frame, missingPi: Pure.L, missingSigma:
 def runBiabduction(
                     prop1: Prop,
                     prop2: Prop
-                  ): Option[Splitting] =
+                  )(using specTable: SpecTable): Option[Splitting] =
   try
     val proverState = ProverState(missingPi = List.empty, missingSigma = List.empty)
     val ((sub1, sub2), frame) = _checkImplication(prop1.toQuantFree, prop2.toQuantFree)(using Mode.CalcMissing, proverState)
@@ -98,6 +98,11 @@ def filterNeLhs(subst: Subst, e0: Expression, field: Option[String], sigma: Spat
   case p@PointsTo(e, f, _) if (e subst subst) == e0 && f == field => Some(p)
   case _ => None
 
+def filterPredLhs(name: Name, subst: Subst, es: List[Expression], sigma: Spatial.S): Option[Pred] = sigma match
+  case pred@Pred(name_, _) if name == name_ => Some(pred)
+  case pred@Pred(_, params) if es.map(_ subst subst) == params => Some(pred)
+  case _ => None
+
 
 /**
  * TODO: Simple predicate abduction.
@@ -109,7 +114,7 @@ def implySpatial(
                   subs: SubstP,
                   prop1: QuantFree,
                   hpred2: Spatial.S
-                )(using mode: Mode, st: ProverState): (SubstP, QuantFree) throws ProverException =
+                )(using mode: Mode, st: ProverState, specTable: SpecTable): (SubstP, QuantFree) throws ProverException =
   @tailrec
   def propFind(prop: Spatial.L, filter: Spatial.S => Option[Spatial.S]): Option[Spatial.S] =
     prop match
@@ -120,6 +125,17 @@ def implySpatial(
        
   
   hpred2 match
+    case Pred(name, params) => propFind(prop1.sigma, filterPredLhs(name, subs._1, params, _)) match
+      case Some(pred) => pred match
+        case Pred(name_, params) if name == name_ => (subs, prop1)
+        case Pred(name_, params_) => 
+          val specsLHS = specTable(name_)
+          val specsRHS = specTable(name)
+          
+          ???
+        case _ => sys.error("unreachable.")
+
+      case None => throw MissingExc(s"NO MATCHING PRED FOUND FOR $name in ${prop1.sigma}")
     case True => (subs, prop1)
     case Spatial.Emp => (subs, prop1)
     case PointsTo(pointer, field, cell) => 
@@ -143,12 +159,13 @@ def implySpatial(
                   case Mode.FailOnMissing => throw e
           case Emp => throw MissingExc("\"could not match |-> (Emp)\"")
           case True => throw MissingExc("\"could not match |-> (True)\"")
+          case Pred(_, _) => throw MissingExc("\"TODO |-> (Pred) TODO\"")
 
 def sigmaImply(
                 subs: SubstP,
                 prop1: QuantFree,
                 sigma2: Spatial.L
-              )(using mode: Mode, st: ProverState): (SubstP, QuantFree) throws ProverException =
+              )(using mode: Mode, st: ProverState, specTable: SpecTable): (SubstP, QuantFree) throws ProverException =
   sigma2 match
     case Nil => (subs, prop1)
     case spatial :: sigma2_ =>
@@ -171,7 +188,7 @@ def sigmaImply(
 def _checkImplication(
                        prop1: QuantFree,
                        prop2: QuantFree
-                     )(using mode: Mode, st: ProverState): (SubstP, Spatial) throws ProverException  =
+                     )(using mode: Mode, st: ProverState, specTable: SpecTable): (SubstP, Spatial) throws ProverException  =
   val (pi1, sigma1) = prop1.refine
   val (pi2, sigma2) = prop2.refine
   val substitutions = preCheckPureImplication(SubstP.empty, pi1, pi2)
@@ -259,7 +276,7 @@ def checkDisequal(prop: Prop, e1: Expression, e2: Expression): Boolean =
   val spatial = prop.sigma
   val n_e1 = prop expNormalizeProp e1
   val n_e2 = prop expNormalizeProp e2
-  
+
   def doesPiImplyDisequal(ne: Expression, ne_ : Expression) =
     pi contains (prop pureNormalizeProp Pure.=!=(ne, ne_))
 
@@ -273,6 +290,8 @@ def checkDisequal(prop: Prop, e1: Expression, e2: Expression): Boolean =
           case Some(_) => Some(true, sigmaIrrelevant.reverse ::: tail)
           case None => f(hpred :: sigmaIrrelevant, e, tail)
       case Nil => None
+      case List(Emp, _*) => ???
+      case List(True, _*) => ???
 
     def fNullCheck(sigmaIrrelevant: Spatial.L, e: Expression, rest: Spatial.L): Option[(Boolean, Spatial.L)] =
       if e != Expression.Const(0) then f(sigmaIrrelevant, e, rest)

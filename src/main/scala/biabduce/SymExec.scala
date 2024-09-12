@@ -106,14 +106,16 @@ def symExeFunctionCall(fnName: Name, actualParams: List[Expression])
   results.toSet
 
 
-
+/*
+TODO: USE THIS TO RECURSE IN THE PROVER
+ */
 def exeSpec(
              name: Name,
              prop: Prop,
              spec: Specification,
              actualParams: List[Expression],
              formalParams: List[ProgramVar]
-           ): Prop =
+           )(using specTable: SpecTable): Prop =
 
   def combine(post: Prop, prop: Prop, splitting: Splitting) =
     val sub = splitting.sub._1 concat splitting.sub._2
