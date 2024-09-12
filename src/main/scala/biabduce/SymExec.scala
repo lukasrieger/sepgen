@@ -108,6 +108,7 @@ def symExeFunctionCall(fnName: Name, actualParams: List[Expression])
 
 /*
 TODO: USE THIS TO RECURSE IN THE PROVER
+TODO: Establish the post-condition as a Pred that points to the spec.
  */
 def exeSpec(
              name: Name,
@@ -122,6 +123,9 @@ def exeSpec(
     val newFootprintPi = splitting.missingPi subst sub
     val newFootprintSigma = splitting.missingSigma subst sub
     val instantiatedFrame = splitting.frame subst sub
+
+    val instantiatedPostPred = Prop.empty.extendSigma(Spatial.Pred(name, actualParams)) subst sub
+
     val instantiatedPost = post subst sub
     val post_1 = prop.copyFootprintPureInto(instantiatedPost).extendSigma(instantiatedFrame)
     val post_2 = newFootprintPi.foldLeft(post_1)((p, s) => p.atomAnd(s))

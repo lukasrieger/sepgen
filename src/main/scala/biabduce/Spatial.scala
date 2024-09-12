@@ -28,6 +28,8 @@ enum Spatial:
       Spatial.PointsTo(pointer subst su, field, cell subst su)
     case Spatial.SepAnd(left, right) =>
       Spatial.SepAnd(left subst su, right subst su)
+    case Spatial.Pred(name, params) => 
+      Spatial.Pred(name, params map (_ subst su))
     case _ => this
 
 object Spatial extends HasListRepr[Spatial]:
