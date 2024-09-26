@@ -33,13 +33,13 @@ enum Cont:
   case Continue
   case Stop
 
-enum ProverException extends Exception:
-  case ImplFalse(reason: String, subst: SubstP, cont: Cont)
-  case FalsePointsTo(reason: String, subst: SubstP, pointsTo: Spatial.S, cont: Cont)
-  case FalseExprs(reason: String, subst: SubstP, exp1: Expression, exp2: Expression, cont: Cont)
-  case FalseAtom(reason: String, subst: SubstP, atom: Pure, cont: Cont)
-  case FalseSigma(reason: String, subst: SubstP, sigma: Spatial.S, cont: Cont)
-  case MissingExc(reason: String)
+enum ProverException(reason: String) extends Exception(reason):
+  case ImplFalse(reason: String, subst: SubstP, cont: Cont) extends ProverException(reason)
+  case FalsePointsTo(reason: String, subst: SubstP, pointsTo: Spatial.S, cont: Cont) extends ProverException(reason)
+  case FalseExprs(reason: String, subst: SubstP, exp1: Expression, exp2: Expression, cont: Cont) extends ProverException(reason)
+  case FalseAtom(reason: String, subst: SubstP, atom: Pure, cont: Cont) extends ProverException(reason)
+  case FalseSigma(reason: String, subst: SubstP, sigma: Spatial.S, cont: Cont) extends ProverException(reason)
+  case MissingExc(reason: String) extends ProverException(reason)
 
 
 case class ProverState(var missingPi: Pure.L, var missingSigma: Spatial.L):
@@ -52,17 +52,37 @@ type Frame = Spatial
 case class Splitting(sub: SubstP, frame: Frame, missingPi: Pure.L, missingSigma: Spatial.L)
 
 
+extension (p1: Prop)
+  infix def |- (p2: Prop)(using specTable: SpecTable, procTable: ProcTable) =
+    runEntailment(p1, p2)
+
+def runEntailment(prop1: Prop,
+                  prop2: Prop
+                 )(using specTable: SpecTable, procTable: ProcTable): Option[SubstP] =
+  try
+    val proverState = ProverState(missingPi = List.empty, missingSigma = List.empty)
+    val ((sub1, sub2), frame) = _checkImplication(
+      prop1.toQuantFree,
+      prop2.toQuantFree
+    )(using Mode.FailOnMissing, proverState)
+
+    Some((sub1, sub2))
+  catch
+    case e: ProverException =>
+      println(s"Failed to find entailment due to: ${e.toString}")
+      None
+
 def runBiabduction(
                     prop1: Prop,
                     prop2: Prop
-                  )(using specTable: SpecTable): Option[Splitting] =
+                  )(using specTable: SpecTable, procTable: ProcTable): Option[Splitting] =
   try
     val proverState = ProverState(missingPi = List.empty, missingSigma = List.empty)
     val ((sub1, sub2), frame) = _checkImplication(prop1.toQuantFree, prop2.toQuantFree)(using Mode.CalcMissing, proverState)
     Some(Splitting((sub1, sub2), frame, proverState.missingPi, proverState.missingSigma))
   catch
     case e: ProverException =>
-      println(s"Failed to find footprint due to: $e")
+      println(s"Failed to find footprint due to: ${e.toString}")
       None
 
 
@@ -99,8 +119,7 @@ def filterNeLhs(subst: Subst, e0: Expression, field: Option[String], sigma: Spat
   case _ => None
 
 def filterPredLhs(name: Name, subst: Subst, es: List[Expression], sigma: Spatial.S): Option[Pred] = sigma match
-  case pred@Pred(name_, _) if name == name_ => Some(pred)
-  case pred@Pred(_, params) if es.map(_ subst subst) == params => Some(pred)
+  case pred@Pred(_, params) if es.map(_ subst subst).exists(params.contains) => Some(pred)
   case _ => None
 
 
@@ -114,7 +133,7 @@ def implySpatial(
                   subs: SubstP,
                   prop1: QuantFree,
                   hpred2: Spatial.S
-                )(using mode: Mode, st: ProverState, specTable: SpecTable): (SubstP, QuantFree) throws ProverException =
+                )(using mode: Mode, st: ProverState, specTable: SpecTable, procTable: ProcTable): (SubstP, QuantFree) throws ProverException =
   @tailrec
   def propFind(prop: Spatial.L, filter: Spatial.S => Option[Spatial.S]): Option[Spatial.S] =
     prop match
@@ -123,19 +142,40 @@ def implySpatial(
         case None => propFind(sigma_, filter)
       case Nil => None
        
-  
+  println(s"HPRED IS $hpred2")
   hpred2 match
-    case Pred(name, params) => propFind(prop1.sigma, filterPredLhs(name, subs._1, params, _)) match
+    case pp@Pred(name, params) =>
+      println(s"GOT A PREDICATE $pp")
+      propFind(prop1.sigma, filterPredLhs(name, subs._1, params, _)) match
       case Some(pred) => pred match
-        case Pred(name_, params) if name == name_ => (subs, prop1)
-        case Pred(name_, params_) => 
-          val specsLHS = specTable(name_)
-          val specsRHS = specTable(name)
-          
-          ???
+        case Pred(name_, params) if name == name_ =>
+          println("------------- GOT MATCHING PREDICATE YAY-----------------")
+          (subs, prop1)
+        case pq@Pred(name_, params_) =>
+          println(s"PREDICATE COULD NOT BE MATCHED, FOUND $pq")
+
+          val tryEntailPredsResult = predMatch(pq, pp)
+
+          if tryEntailPredsResult then
+            println(s"SUCCEEDED TO PROVE THAT ${pq.name} |- ${pp.name} !!!")
+            (subs, prop1)
+          else
+            println(s"TRIED TO PROVE THAT ${pq.name} |- ${pp.name}, but failed.")
+            throw MissingExc(s"Unrolling non-matching predicates not implemented yet!")
+
+
+        // This causes sigmaImply to add the predicate to missingSigma.
+//            throw MissingExc(s"Unrolling non-matching predicates not implemented yet!")
+//          val specsLHS = specTable(name_)
+//          val specsRHS = specTable(name)
+//
+//          ???
         case _ => sys.error("unreachable.")
 
-      case None => throw MissingExc(s"NO MATCHING PRED FOUND FOR $name in ${prop1.sigma}")
+      case None =>
+        println("-------------- NO MATCHING PREDICATE FOUND :((( -----------------")
+        println(s"LOOKED IN : ${prop1.sigma}")
+        throw MissingExc(s"NO MATCHING PRED FOUND FOR $name in ${prop1.sigma}")
     case True => (subs, prop1)
     case Spatial.Emp => (subs, prop1)
     case PointsTo(pointer, field, cell) => 
@@ -165,7 +205,7 @@ def sigmaImply(
                 subs: SubstP,
                 prop1: QuantFree,
                 sigma2: Spatial.L
-              )(using mode: Mode, st: ProverState, specTable: SpecTable): (SubstP, QuantFree) throws ProverException =
+              )(using mode: Mode, st: ProverState, specTable: SpecTable, procTable: ProcTable): (SubstP, QuantFree) throws ProverException =
   sigma2 match
     case Nil => (subs, prop1)
     case spatial :: sigma2_ =>
@@ -177,18 +217,20 @@ def sigmaImply(
               (subs, prop1)
             case _ => throw e
       try sigmaImply(subs_, prop1_, sigma2_)
-      catch case e: ProverException =>
-        mode match
-          case Mode.CalcMissing =>
-            st.missingSigma = sigma2 ::: st.missingSigma
-            (subs, prop1)
-          case Mode.FailOnMissing => throw e
+      catch
+        case e: MissingExc =>
+          mode match
+            case Mode.CalcMissing =>
+              st.missingSigma = sigma2 ::: st.missingSigma
+              (subs, prop1)
+            case Mode.FailOnMissing => throw e
+
 
 
 def _checkImplication(
                        prop1: QuantFree,
                        prop2: QuantFree
-                     )(using mode: Mode, st: ProverState, specTable: SpecTable): (SubstP, Spatial) throws ProverException  =
+                     )(using mode: Mode, st: ProverState, specTable: SpecTable, procTable: ProcTable): (SubstP, Spatial) throws ProverException  =
   val (pi1, sigma1) = prop1.refine
   val (pi2, sigma2) = prop2.refine
   val substitutions = preCheckPureImplication(SubstP.empty, pi1, pi2)
@@ -226,8 +268,10 @@ def preCheckPureImplication(
       preCheckPureImplication(subs, pi1, pi2_)
     case (LogicalVar(_) =!= _) :: pi2_ =>
       preCheckPureImplication(subs, pi1, pi2_)
-    case (_ =!= _) :: _ =>
-      throw ImplFalse("ineq e2=f2 in rhs with e2 not primed var", (Map.empty, Map.empty), Continue)
+    case a@(_ =!= _) :: pi2_ =>
+      preCheckPureImplication(subs, pi1, pi2_)
+    case List(True, _*) => subs
+    case List(_*) => subs
 
 def implyAtom(
                subs: SubstP,
@@ -255,9 +299,13 @@ def _implyAtom(
 
   if !(pi1_ contains a_) then
     a_ match
-      case _ =:= _ => throw FalseAtom("atom in rhs missing in lhs", subs, a, Continue)
+      case _ =:= _ =>
+        println(s"FALSE ATOM!: $pi1_ AND $a_")
+        throw FalseAtom("atom in rhs missing in lhs", subs, a, Continue)
       //// TODO impl check_disequal
-      case _ =!= _ => throw FalseAtom("atom in rhs missing in lhs", subs, a, Continue)
+      case _ =!= _ =>
+        println(s"FALSE ATOM!: $pi1_ AND $a_")
+        throw FalseAtom("atom in rhs missing in lhs", subs, a, Continue)
       case _ => ()
 
 
@@ -270,6 +318,9 @@ def checkEqual(prop: Prop, e1: Expression, e2: Expression): Boolean =
   else
     pi contains (prop pureNormalizeProp Pure.=:=(n_e1, n_e2))
 
+
+def isRoot(prop: Prop, base: Expression, e: Expression): Boolean =
+  checkEqual(prop, base, e)
 
 def checkDisequal(prop: Prop, e1: Expression, e2: Expression): Boolean =
   val pi = prop.pi
@@ -286,12 +337,15 @@ def checkDisequal(prop: Prop, e1: Expression, e2: Expression): Boolean =
     @tailrec
     def f(sigmaIrrelevant: Spatial.L, e: Expression, rest: Spatial.L): Option[(Boolean, Spatial.L)] = rest match
       case (hpred@Spatial.PointsTo(base, field, _)) :: tail =>
-        field match
-          case Some(_) => Some(true, sigmaIrrelevant.reverse ::: tail)
-          case None => f(hpred :: sigmaIrrelevant, e, tail)
+        if isRoot(prop, base, e) then
+          Some(true, sigmaIrrelevant.reverse ::: tail)
+        else
+          f(hpred :: sigmaIrrelevant, e, tail)
       case Nil => None
-      case List(Emp, _*) => ???
-      case List(True, _*) => ???
+      case Emp :: tail => f(Emp :: sigmaIrrelevant, e, tail)
+      case True :: tail => f(True :: sigmaIrrelevant, e, tail)
+      case (pr@Pred(name, args)) :: tail => f(pr :: sigmaIrrelevant, e, tail)
+
 
     def fNullCheck(sigmaIrrelevant: Spatial.L, e: Expression, rest: Spatial.L): Option[(Boolean, Spatial.L)] =
       if e != Expression.Const(0) then f(sigmaIrrelevant, e, rest)
@@ -304,11 +358,12 @@ def checkDisequal(prop: Prop, e1: Expression, e2: Expression): Boolean =
       case None => false
     
   def neqPurePart = doesPiImplyDisequal(n_e1, n_e2)
-    
+
   neqPurePart || neqSpatialPart
 
 
-def checkInconsistency(prop: Prop): Boolean = ???
-
+def checkInconsistency(prop: Prop): Boolean =
+  val is = prop.pi.contains(Pure.=!=(Expression.AnyTerm("null"), Expression.AnyTerm("null")))
+  is
 
 

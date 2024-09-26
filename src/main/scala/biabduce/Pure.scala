@@ -26,7 +26,14 @@ enum Pure:
   case True
 
   def &(right: Pure): Pure = Pure.&(this, right)
-  
+
+
+  override def toString: String = this match
+    case Pure.=:=(left, right) => s"$left == $right"
+    case Pure.=!=(left, right) => s"$left != $right"
+    case Pure.&(left, right) => s"$left & $right"
+    case Pure.True => "true"
+
 
   infix def rename(re: Map[Expression, Expression]): Pure = this match
     case left =:= right => (left rename re) =:= (right rename re)
@@ -84,10 +91,17 @@ extension (pure: Pure)
   infix def and(quant: QuantFree): QuantFree = (pure, quant) match
     case (q, pi ^ sigma) => (q and pi) and sigma
 
-  infix def and(symbolic: Symbolic): Symbolic = (pure, symbolic) match
-    case (p, Exists(vars, body)) => Exists(vars, p and body)
+//  infix def and(symbolic: Symbolic): Symbolic = (pure, symbolic) match
+//    case (p, Exists(vars, body)) => Exists(vars, p and body)
 
-  
-  
-given Conversion[Pure, Pure.L] = (pure: Pure) => ???
-given Conversion[Pure.L, Pure] = (pureL: Pure.L) => ???
+private def pureToL(pure: Pure): Pure.L = pure match
+  case Pure.&(left, right) => pureToL(left) ::: pureToL(right)
+  case other => List(other.asInstanceOf[Pure.S])
+
+private def LtoPure(pureL: Pure.L): Pure = pureL match
+  case head :: Nil => head
+  case head :: tail => tail.foldLeft(head)((acc, c) => Pure.&(acc, c))
+  case Nil => True
+
+given Conversion[Pure, Pure.L] = (pure: Pure) => pureToL(pure)
+given Conversion[Pure.L, Pure] = (pureL: Pure.L) => LtoPure(pureL)

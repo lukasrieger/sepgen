@@ -11,16 +11,16 @@ import scala.language.experimental.saferExceptions
 enum SymException extends Exception:
   case BiAbductionFailure(state: QuantFree, failAt: Spatial)
   case Other(reason: Any)
+  
+object Counter:
+  var counter: Int = 0
+  
+  def getCounter =
+    counter = counter + 1
+    counter
 
 
 extension (prop: Prop)
-
-/*
-We either expose the value on the heap if it exists,
-OR we instantiate a new logical variable as a placeholder.
-This will then be picked up during bi-abduction.
- */
-
   infix def load(pointer: Expression, field: Option[String]): (Expression, Prop) =
     @tailrec
     def go(pointer: Expression, field: Option[String])(sigma: Spatial.L): (Expression, Boolean) =
@@ -28,7 +28,7 @@ This will then be picked up during bi-abduction.
         case Spatial.PointsTo(`pointer`, `field`, value) :: _ => value -> false
         case _ :: tail => go(pointer, field)(tail)
         case Nil =>
-          val log = LogicalVar(field.map(s => Name(s.appended('_'))).getOrElse(Name.someLogical))
+          val log = LogicalVar(field.map(s => Name(s.appended('_'))).getOrElse(Name.someLogical)).fresh(Counter.getCounter)
           log -> true
 
     go(pointer, field)(prop.sigma) match
@@ -48,15 +48,6 @@ This will then be picked up during bi-abduction.
 
     prop updateSigma go(pointer)
 
-/*
-TODO: I think we need to adjust the semantics of store and load such that they always have
-      a spatial postcodnition that simply asserts that some var is now logically equal to the pointer contents
-      + the existance of the pointer
- */
-
-/*
-IMPORTANT  TODO: !!NORMALIZATION!!
- */
 
 def symExecInstr(command: Atomic)
                 (prop: Prop): Prop throws SymException =
@@ -72,28 +63,47 @@ def symExecInstr(command: Atomic)
     case biabduce.AtomicMod.Assign(x, expr) =>
       prop conjoinEq(x, expr)
 
-case class DefEnv(defs: Map[Name, Command.L])
+def symExeProc(proc: Proc)(using specTable: SpecTable, procTable: ProcTable): List[Specification] =
+  try
+    specTable.get(proc.name) match
+      case Some(specs) => specs
+      case None =>
+        println("Running symbolic execution")
+        val specs = symExecTop(proc.name)(proc.body)(PropSet.initial).extractSpecs
+        specTable.update(proc.name, specs)
+        specs
+  catch case e: SymException => sys.error(s"Symbolic execution failed with $e")
 
-def symExecTop(command: Command.L)
+
+def symExecTop(procName: Name)
+              (command: Command.L)
               (propSet: PropSet)
               (using specTable: SpecTable, procTable: ProcTable): PropSet throws SymException =
+  println(s"Executing $command")
   command match
+    case ComplexCommand.Call(name, args) :: tail if name == procName =>
+      val newPropSet = for
+        prop <- propSet
+        prop_ = prop.extendSigmaAndFootprint(Spatial.Pred(procName, args.map(_ subst prop.sub)))
+      yield prop_
+      symExecTop(procName)(tail)(newPropSet)
     case ComplexCommand.Call(name, args) :: tail =>
       val results = for
         prop <- propSet
         res = symExeFunctionCall(name, args)(prop)
-      yield symExecTop(tail)(res)
+      yield symExecTop(procName)(tail)(res)
       results.flatten
     case ComplexCommand.If(condition, trueBranch, falseBranch) :: tail =>
-      symExecTop(
+      val propSetTrue = symExecTop(procName)(trueBranch)(propSet pruneBy condition)
+      val propSetFalse = symExecTop(procName)(falseBranch)(propSet pruneBy UnOp(Op.Not, condition))
+      val newPropSet = propSetTrue.union(propSetFalse)
+      symExecTop(procName)(
         command = tail
-      )(propSet = symExecTop(trueBranch)(propSet pruneBy condition) union
-        symExecTop(falseBranch)(propSet pruneBy UnOp(Op.Not, condition))
-      )
+      )(propSet = newPropSet)
     case (atomic: Atomic) :: tail =>
-      symExecTop(tail)(propSet map symExecInstr(atomic))
-
-    case NoOp :: tail => symExecTop(tail)(propSet)
+      symExecTop(procName)(tail)(propSet map symExecInstr(atomic))
+    case NoOp :: tail =>
+      symExecTop(procName)(tail)(propSet)
     case Nil => propSet
 
 
@@ -106,17 +116,13 @@ def symExeFunctionCall(fnName: Name, actualParams: List[Expression])
   results.toSet
 
 
-/*
-TODO: USE THIS TO RECURSE IN THE PROVER
-TODO: Establish the post-condition as a Pred that points to the spec.
- */
 def exeSpec(
              name: Name,
              prop: Prop,
              spec: Specification,
              actualParams: List[Expression],
              formalParams: List[ProgramVar]
-           )(using specTable: SpecTable): Prop =
+           )(using specTable: SpecTable, procTable: ProcTable): Prop =
 
   def combine(post: Prop, prop: Prop, splitting: Splitting) =
     val sub = splitting.sub._1 concat splitting.sub._2
@@ -124,21 +130,28 @@ def exeSpec(
     val newFootprintSigma = splitting.missingSigma subst sub
     val instantiatedFrame = splitting.frame subst sub
 
+    println(s"FOOTPRINT SIGMA :: $newFootprintSigma")
     val instantiatedPostPred = Prop.empty.extendSigma(Spatial.Pred(name, actualParams)) subst sub
 
-    val instantiatedPost = post subst sub
+//    val instantiatedPost = post subst sub
+    val instantiatedPost = instantiatedPostPred
     val post_1 = prop.copyFootprintPureInto(instantiatedPost).extendSigma(instantiatedFrame)
     val post_2 = newFootprintPi.foldLeft(post_1)((p, s) => p.atomAnd(s))
 
     post_2.addFootprintPiSigma(newFootprintPi, newFootprintSigma)
 
   def instantiateFormals =
-    val params = actualParams zip formalParams
+    val params = formalParams zip actualParams
     val instantiated: List[Spatial.S] = params.map: (actual, formal) =>
       Spatial.PointsTo(formal, None, actual)
-    prop extendSigma instantiated
+
+    println(s"GOT INSTANTIATION : $instantiated")
+    prop //extendSigma instantiated
 
   val inst = instantiateFormals
-  runBiabduction(spec.pre, inst) match
+  val specPrePred = Prop.empty.extendSigma(Spatial.Pred(name, actualParams))
+  
+  println(s"RUNNING BI-ABDUCTION with $inst |- $specPrePred")
+  runBiabduction(inst, specPrePred) match
     case Some(split) => combine(spec.post, inst, split)
     case None => sys.error("Bi-abduction seems to have failed")

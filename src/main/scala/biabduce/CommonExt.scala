@@ -23,14 +23,14 @@ object `**`:
 //        case QAnd(_, rightQ) ** rightmost => QAnd(pure, left * rightQ) -> rightmost
 //    case QAnd(pure: Pure, left ** right) => QAnd(pure, left) -> right
 //    case QAnd(pure, spatial) => QAnd(pure, Emp) -> spatial
-
-extension (symbolic: Symbolic)
-  infix def *(s: Symbolic): Symbolic = (symbolic, s) match
-    case (Exists(vars1, body1), Exists(vars2, body2)) => Exists(vars1 ++ vars2, body1 * body2)
-
-  infix def *(spatial: Spatial): Symbolic = (symbolic, spatial) match
-    case(Exists(vars, body), sp) => Exists(vars, body * sp)
-
+//
+//extension (symbolic: Symbolic)
+//  infix def *(s: Symbolic): Symbolic = (symbolic, s) match
+//    case (Exists(vars1, body1), Exists(vars2, body2)) => Exists(vars1 ++ vars2, body1 * body2)
+//
+//  infix def *(spatial: Spatial): Symbolic = (symbolic, spatial) match
+//    case(Exists(vars, body), sp) => Exists(vars, body * sp)
+//
 
 extension (quantFree: QuantFree)
   infix def *(q: QuantFree): QuantFree = (quantFree, q) match

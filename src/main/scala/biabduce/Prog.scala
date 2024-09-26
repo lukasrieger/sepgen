@@ -16,7 +16,11 @@ object Command extends HasListRepr[Command]:
   type S = ComplexCommand.Call | ComplexCommand.If | Atomic
   type L = List[S]
 
-given Conversion[Command, Command.L] = (pure: Command) => ???
+private def commandToL(command: Command): Command.L = command match
+  case ComplexCommand.AndThen(first, second) => commandToL(first) ::: commandToL(second)
+  case other => List(other.asInstanceOf[Command.S])
+
+given Conversion[Command, Command.L] = (command: Command) => commandToL(command)
 given Conversion[Command.L, Command] = (pureL: Command.L) => ???
 
 

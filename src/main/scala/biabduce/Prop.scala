@@ -1,9 +1,10 @@
 package biabduce
 
-import biabduce.Expression.{AnyTerm, BinOp, Const, LogicalVar, ProgramVar}
+import biabduce.Expression.{AnyTerm, BinOp, Const, LogicalVar, ProgramVar, UnOp}
 import biabduce.Spatial.SepAnd
 import biabduce.Pure.*
 import biabduce.Subst.rangeMap
+import pure.Name
 
 /*
 Used to carry along the pre-condition during symbolic execution.
@@ -24,6 +25,17 @@ case class Prop(
                 footprint: Footprint
                 ):
 
+
+  override def toString: String =
+    s"""
+      |Prop:
+      |Prop:
+      |   sub:   $sub
+      |   pi:    ${pi.mkString(" ∧ ")}
+      |   sigma: ${sigma.mkString(" * ")}
+      |   footprint: $footprint
+      |""".stripMargin
+
   def addFootprintPiSigma(pi: Pure.L, sigma: Spatial.L): Prop =
     val footprint_ = Footprint(
       pi = pi ::: this.footprint.pi,
@@ -33,8 +45,27 @@ case class Prop(
     val prop2 = pi.foldRight(prop1)((eq, p) => p atomAnd eq )
     prop2
 
+
+  def addPiSigma(pi: Pure.L, sigma: Spatial.L): Prop =
+    val prop_ = pi.foldRight(this)((eq, p) => p atomAnd eq)
+    prop_.copy(sigma = prop_.sigma ::: sigma)
+
   def copyFootprintPureInto(p2: Prop): Prop =
     this.pi.foldLeft(p2.copy(footprint = this.footprint))((p, s) => p.atomAnd(s))
+
+
+  def extractSpec: (Prop, Prop) =
+    val footprint0 = Prop(
+      sub = Subst.empty,
+      pi = List.empty,
+      sigma = this.footprint.sigma normalize Subst.empty,
+      footprint = Footprint(pi = List.empty, sigma = List.empty)
+    )
+
+    val prop0 = footprint.pi.foldLeft(footprint0)((p, s) => p.atomAnd(s))
+    val pre = prop0
+    val post = this.copy(footprint = Footprint(pi = List.empty, sigma = List.empty))
+    (pre, post)
 
   
   infix def subst(sub: Subst): Prop =
@@ -48,6 +79,18 @@ case class Prop(
       footprint = Footprint(pi = List.empty, sigma = List.empty)
     )
     pi_.foldLeft(prop0)((p, s) => p.atomAnd(s) )
+
+  infix def subst2(sub: Subst): Prop =
+    val pi: Pure.L = (this.pi ::: this.sub.toList.map(Pure.=:=(_, _))).asInstanceOf[Pure.L]
+    val pi_ = pi subst sub
+    val sigma_ = this.sigma subst sub
+    val prop0 = Prop(
+      sub = Subst.empty,
+      pi = List.empty,
+      sigma = sigma_,
+      footprint = this.footprint
+    )
+    pi_.foldLeft(prop0)((p, s) => p.atomAnd(s))
 
   def toQuantFree = QuantFree.QAnd(pi = this.pi, sigma = this.sigma)
 
@@ -72,6 +115,8 @@ case class Prop(
 
   infix def extendSigmaAndFootprint(spatial: Spatial.S): Prop =
     this extendSigma spatial extendFootprintSigma spatial
+
+  infix def removePredicate(name: Name): Prop = ???
 
 
   infix def conjoinEq(exp1: Expression, exp2: Expression, footprint: Boolean = false) =
@@ -128,6 +173,13 @@ def symEval(e: Expression): Expression = e match
   case AnyTerm(t) if e == Special.Null => Const(0)
   case AnyTerm(t) => e
   case Const(const) => e
+  case UnOp(op, e) =>
+    val e_ = symEval(e)
+    (op, e_) match
+      case (Op.Not, Const(0)) => Const(1)
+      case (Op.Not, Const(_)) => Const(0)
+      case _ => UnOp(op, e_)
+
   case BinOp(left, op, right) =>
     val _left = symEval(left)
     val _right = symEval(right)
@@ -141,6 +193,7 @@ def symEval(e: Expression): Expression = e match
       case (Op.Mul, Const(1), Const(n)) => Const(n)
       case (Op.Div, Const(n), Const(1)) => Const(n)
       case _ => BinOp(_left, op, _right)
+
 
 
 object Prop:

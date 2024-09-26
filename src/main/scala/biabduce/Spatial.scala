@@ -13,6 +13,19 @@ enum Spatial:
   case PointsTo(pointer: Expression, field: Option[String], cell: Expression)
   case SepAnd(left: Spatial, right: Spatial)
   case Pred(name: Name, params: List[Expression])
+  
+  
+  override def toString = this match
+    case Spatial.True => "true"
+    case Spatial.Emp => "emp"
+    case Spatial.PointsTo(pointer, field, cell) =>
+      field match
+        case Some(value) => s"$pointer.$value |-> $cell"
+        case None => s"$pointer |-> $cell"
+    case Spatial.SepAnd(left, right) => s"$left ✶ $right"
+    case Spatial.Pred(name, params) =>
+      val prettyArgs = params.map(_.toString).mkString("(", ", ", ")")
+      s"${name}$prettyArgs"
 
   infix def rename(re: Map[Expression, Expression]): Spatial = this match
     case Spatial.PointsTo(pointer, field, cell) =>
@@ -60,5 +73,14 @@ object Spatial extends HasListRepr[Spatial]:
         case Spatial.SepAnd(left, right) => app.product(f(left), f(right)).map(Spatial.SepAnd.apply)
         case _ => app.pure(s)
 
-  given Conversion[Spatial, Spatial.L] = (spatial: Spatial) => ???
-  given Conversion[Spatial.L, Spatial] = (spatialL: Spatial.L) => ???
+  given Conversion[Spatial, Spatial.L] = (spatial: Spatial) => spatialToL(spatial)
+  given Conversion[Spatial.L, Spatial] = (spatialL: Spatial.L) => LtoSpatial(spatialL)
+
+private def spatialToL(spatial: Spatial): Spatial.L = spatial match
+  case Spatial.SepAnd(left, right) => spatialToL(left) ::: spatialToL(right)
+  case other => List(other.asInstanceOf[Spatial.S])
+
+private def LtoSpatial(spatialL: Spatial.L): Spatial = spatialL match
+  case head :: Nil => head
+  case head :: tail => tail.foldLeft(head)((acc, c) => Spatial.SepAnd(acc, c))
+  case Nil => Spatial.Emp

@@ -124,8 +124,8 @@ extension (when: PartialWhen)
         s._commands += If(
           when.cond, 
           when.ifTrue,
-          tail.foldLeft[ComplexCommand]
-            (head.asInstanceOf[ComplexCommand])
+          tail.foldLeft[Command]
+            (head.asInstanceOf[Command])
             ((acc, c) => AndThen(acc, c))
         )
       case Nil =>
@@ -136,7 +136,7 @@ extension (e: Expression)
   infix def eq(other: Int) = BinOp(e, Op.Eq, Const(other))
   infix def =:=(other: Expression) = BinOp(e, Op.Eq, other)
   infix def =:=(other: Int) = BinOp(e, Op.Eq, Const(other))
-  infix def =/=(other: Expression) = UnOp(Op.Not, BinOp(e, Op.Eq, other))
+  infix def =/=(other: Expression) = BinOp(e, Op.Neq, other)
   infix def +(other: Expression) = BinOp(e, Op.Plus, other)
   infix def /(other: Expression) = BinOp(e, Op.Div, other)
   infix def -(other: Expression) = BinOp(e, Op.Minus, other)

@@ -20,9 +20,11 @@ package alpha:
 
     def free: Set[V] = Set(this)
 
-    infix def rename(re: Map[V, V]): V = re.getOrElse(this, this)
+    infix def rename(re: Map[V, V]): V =
+      re.getOrElse(this, this)
 
-    infix def subst(su: Map[V, E]): E = su.getOrElse(this, this)
+    infix def subst(su: Map[V, E]): E =
+      su.getOrElse(this, this)
 
 
 trait Alpha[E <: alpha.Term[E, V], V <: E with alpha.X[E, V]]:
