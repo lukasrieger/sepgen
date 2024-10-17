@@ -16,7 +16,7 @@ package alpha:
   trait X[E, V <: E] extends Term[E, V]:
     this: V =>
 
-    def fresh(index: Int): V
+    infix def fresh(index: Int): V
 
     def free: Set[V] = Set(this)
 
@@ -27,7 +27,7 @@ package alpha:
       su.getOrElse(this, this)
 
 
-trait Alpha[E <: alpha.Term[E, V], V <: E with alpha.X[E, V]]:
+trait Alpha[E <: alpha.Term[E, V], V <: E & alpha.X[E, V]]:
   context =>
 
   type Term = alpha.Term[E, V]

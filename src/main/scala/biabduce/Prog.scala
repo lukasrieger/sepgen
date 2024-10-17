@@ -3,6 +3,7 @@ package biabduce
 
 import biabduce.Expression.ProgramVar
 import pure.Name
+import util.Alpha
 
 type Command = Atomic | ComplexCommand
 
@@ -11,7 +12,7 @@ enum ComplexCommand:
   case If(condition: Expression, trueBranch: Command, falseBranch: Command)
   case AndThen(first: Command, second: Command)
   case NoOp
-  
+
 object Command extends HasListRepr[Command]:
   type S = ComplexCommand.Call | ComplexCommand.If | Atomic
   type L = List[S]

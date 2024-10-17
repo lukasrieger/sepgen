@@ -16,6 +16,9 @@ case class Specification(
                         post: Prop
                         ):
 
+  override def toString: String =
+    s"Pre: ${pre}\n Post: ${post}"
+
 
   def existQuantify: SymbolicSpec =
     def collectLogVars(prop: Prop): Set[LogicalVar] =
@@ -41,7 +44,15 @@ extension (specTable: SpecTable)
   infix def lookupSpec(name: Name)(using procTable: ProcTable): List[Specification] =
     given s: SpecTable = specTable
     specTable.getOrElse(name, symExeProc(procTable(name)))
+    
+  infix def resolvePred(pred: Spatial.Pred): PropSet =
+    specTable(pred.name).instantiate(pred.params)
+    
 
 
-
+extension (specs: List[Specification])
+  def toPropSet: PropSet = ???
+  
+  def instantiate(args: List[Expression]): PropSet =
+    specs.map(_.post).toSet
 

@@ -5,7 +5,12 @@ import util.StringSyntax.*
 import scala.util.Random
 
 
+private object NameCounter:
+  var counter: Int = 0
 
+  def getCounter: Int =
+    counter = counter + 1
+    counter
 
 case class Name(name: String, index: Option[Int] = None):
   def withName(name_ : String): Name = Name(name_, index)
@@ -13,6 +18,8 @@ case class Name(name: String, index: Option[Int] = None):
   def withIndex(index_ : Int): Name = Name(name, Some(index_))
   
   def increment: Name = Name(name, Some(index.getOrElse(0) + 1))
+  
+  def nextInc: Name = Name(name, Some(NameCounter.getCounter))
 
   def toLabel: String = name ~~ index
 

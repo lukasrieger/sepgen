@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaCompilerConfiguration">
-    <profile name="sbt 1" modules="sepgen">
+    <option name="separateProdTestSources" value="true" />
+    <profile name="sbt 1" modules="sepgen" />
+    <profile name="sbt 2" modules="sepgen.main,sepgen.test">
       <option name="implicitConversions" value="true" />
       <option name="featureWarnings" value="true" />
       <parameters>

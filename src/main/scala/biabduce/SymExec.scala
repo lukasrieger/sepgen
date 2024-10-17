@@ -21,6 +21,7 @@ object Counter:
 
 
 extension (prop: Prop)
+  
   infix def load(pointer: Expression, field: Option[String]): (Expression, Prop) =
     @tailrec
     def go(pointer: Expression, field: Option[String])(sigma: Spatial.L): (Expression, Boolean) =
@@ -50,7 +51,7 @@ extension (prop: Prop)
 
 
 def symExecInstr(command: Atomic)
-                (prop: Prop): Prop throws SymException =
+                (prop: Prop): Prop =
   command match
     case biabduce.AtomicAccess.Store(pointer, field, newValue) =>
       val (_, prop_) = prop load(pointer, field)

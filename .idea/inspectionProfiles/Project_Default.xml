@@ -7,15 +7,9 @@
         <language minSize="80" name="Scala" />
       </Languages>
     </inspection_tool>
-    <inspection_tool class="NoTargetNameAnnotationForOperatorLikeDefinition" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="NonAsciiCharacters" enabled="false" level="WARNING" enabled_by_default="false">
       <option name="CHECK_FOR_NOT_ASCII_IDENTIFIER_NAME" value="false" />
       <option name="CHECK_FOR_DIFFERENT_LANGUAGES_IN_IDENTIFIER_NAME" value="false" />
     </inspection_tool>
-    <inspection_tool class="ScalaUnusedSymbol" enabled="true" level="WARNING" enabled_by_default="true">
-      <option name="reportPublicDeclarations" value="false" />
-    </inspection_tool>
-    <inspection_tool class="ScalaWeakerAccess" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="TypeAnnotation" enabled="false" level="WARNING" enabled_by_default="false" />
   </profile>
 </component>

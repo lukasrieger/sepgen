@@ -6,6 +6,8 @@ import biabduce.Pure.*
 import biabduce.Subst.rangeMap
 import pure.Name
 
+import scala.annotation.tailrec
+
 /*
 Used to carry along the pre-condition during symbolic execution.
  */
@@ -16,7 +18,7 @@ case class Footprint(
                     )
 
 object Footprint:
-  def empty = Footprint(pi = List.empty, sigma = List.empty)
+  def empty: Footprint = Footprint(pi = List.empty, sigma = List.empty)
 
 case class Prop(
                 sub: Subst,
@@ -24,6 +26,32 @@ case class Prop(
                 sigma: Spatial.L,
                 footprint: Footprint
                 ):
+
+
+  def captureSet(vars: Set[Expression]): Set[Spatial.Pred] =
+    @tailrec
+    def go(
+            vars: Set[Expression],
+            captures: Set[Spatial.Pred] = Set.empty
+          )(sigma: Spatial.L): (Set[Expression], Set[Spatial.Pred]) =
+      sigma match
+        case (p@Spatial.Pred(_, params)) :: tail if vars.exists(params.contains) =>
+          go(vars ++ params, captures + p)(tail)
+        case _ :: tail =>
+          go(vars, captures)(tail)
+        case Nil =>
+          vars -> captures
+
+    @tailrec
+    def fix(vars: Set[Expression])
+           (captures: Set[Spatial.Pred] = Set.empty): (Set[Expression], Set[Spatial.Pred]) =
+      val (vars_, captures_) = go(vars, captures)(this.sigma)
+      if captures != captures_ then
+        fix(vars_)(captures_)
+      else
+        (vars, captures)
+
+    fix(vars)(Set.empty)._2
 
 
   override def toString: String =
@@ -45,6 +73,10 @@ case class Prop(
     val prop2 = pi.foldRight(prop1)((eq, p) => p atomAnd eq )
     prop2
 
+  
+  infix def combineWith(other: Prop): Prop =
+    val prop_ = this.addPiSigma(other.pi, other.sigma)
+    prop_.copy(sub = prop_.sub ++ other.sub)
 
   def addPiSigma(pi: Pure.L, sigma: Spatial.L): Prop =
     val prop_ = pi.foldRight(this)((eq, p) => p atomAnd eq)
@@ -92,7 +124,7 @@ case class Prop(
     )
     pi_.foldLeft(prop0)((p, s) => p.atomAnd(s))
 
-  def toQuantFree = QuantFree.QAnd(pi = this.pi, sigma = this.sigma)
+  def toQuantFree: QuantFree = QuantFree.QAnd(pi = this.pi, sigma = this.sigma)
 
   infix def extendPi(pi: Pure.S): Prop =
     copy(pi = Pure.&(pi, this.pi))
@@ -102,6 +134,11 @@ case class Prop(
 
   infix def extendSigma(sigma: Spatial.L): Prop =
     copy(sigma = (sigma ::: this.sigma).asInstanceOf[Spatial.L] subst this.sub)
+
+  infix def removeSigma(sigma: Spatial.S): Prop =
+    copy(
+      sigma = this.sigma.filterNot(_ == sigma)
+    )
 
   infix def updateSigma(fn: Spatial.L => Spatial.L): Prop =
     copy(sigma = fn(sigma))
@@ -119,10 +156,10 @@ case class Prop(
   infix def removePredicate(name: Name): Prop = ???
 
 
-  infix def conjoinEq(exp1: Expression, exp2: Expression, footprint: Boolean = false) =
+  infix def conjoinEq(exp1: Expression, exp2: Expression, footprint: Boolean = false): Prop =
     atomAnd(Pure.=:=(exp1, exp2), footprint)
   
-  infix def conjoinNeq(exp1: Expression, exp2: Expression, footprint: Boolean = false) =
+  infix def conjoinNeq(exp1: Expression, exp2: Expression, footprint: Boolean = false): Prop =
     atomAnd(Pure.=!=(exp1, exp2), footprint)
 
   infix def atomAnd(atom: Pure.S, footprint: Boolean = false): Prop =

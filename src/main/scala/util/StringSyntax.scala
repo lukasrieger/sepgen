@@ -8,11 +8,11 @@ object StringSyntax:
     def __(index: Int): String =
       self + (index.toString map (n => sub(n - '0')))
 
-    def __(index: Option[Int]): String = index match
+    infix def __(index: Option[Int]): String = index match
       case None => self
       case Some(index) => __(index)
 
-    def ~~(index: Option[Int]): String = index match
+    infix def ~~(index: Option[Int]): String = index match
       case None => self
       case Some(index) => self + "$" + index
   

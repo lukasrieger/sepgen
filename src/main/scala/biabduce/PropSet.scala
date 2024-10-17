@@ -17,7 +17,16 @@ object PropSet:
   def of(propList: List[Prop]): PropSet = Set.from(propList)
 
 
+
+      
+
 extension (propSet: PropSet)
+
+  infix def combine(other: PropSet): PropSet = for
+    prop1 <- propSet
+    prop2 <- other
+  yield
+    prop1 combineWith prop2
 
   def extractSpecs: List[Specification] =
     propSet.map(_.extractSpec).map(Specification.apply).toList
